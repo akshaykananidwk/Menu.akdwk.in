@@ -9,6 +9,40 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 
+-- Drop any existing tables (makes the installer safely re-runnable if a
+-- previous attempt half-completed). FK checks are disabled above so order
+-- does not matter.
+DROP TABLE IF EXISTS `{PREFIX}super_admins`;
+DROP TABLE IF EXISTS `{PREFIX}plans`;
+DROP TABLE IF EXISTS `{PREFIX}templates`;
+DROP TABLE IF EXISTS `{PREFIX}standee_templates`;
+DROP TABLE IF EXISTS `{PREFIX}tenants`;
+DROP TABLE IF EXISTS `{PREFIX}staff`;
+DROP TABLE IF EXISTS `{PREFIX}categories`;
+DROP TABLE IF EXISTS `{PREFIX}items`;
+DROP TABLE IF EXISTS `{PREFIX}item_variants`;
+DROP TABLE IF EXISTS `{PREFIX}item_addons`;
+DROP TABLE IF EXISTS `{PREFIX}tables`;
+DROP TABLE IF EXISTS `{PREFIX}orders`;
+DROP TABLE IF EXISTS `{PREFIX}order_items`;
+DROP TABLE IF EXISTS `{PREFIX}feedback`;
+DROP TABLE IF EXISTS `{PREFIX}invoices`;
+DROP TABLE IF EXISTS `{PREFIX}tickets`;
+DROP TABLE IF EXISTS `{PREFIX}ticket_replies`;
+DROP TABLE IF EXISTS `{PREFIX}notices`;
+DROP TABLE IF EXISTS `{PREFIX}settings`;
+DROP TABLE IF EXISTS `{PREFIX}ai_logs`;
+DROP TABLE IF EXISTS `{PREFIX}activity_logs`;
+DROP TABLE IF EXISTS `{PREFIX}login_attempts`;
+DROP TABLE IF EXISTS `{PREFIX}migrations`;
+DROP TABLE IF EXISTS `{PREFIX}update_logs`;
+DROP TABLE IF EXISTS `{PREFIX}backups`;
+DROP TABLE IF EXISTS `{PREFIX}whatsapp_settings`;
+DROP TABLE IF EXISTS `{PREFIX}whatsapp_templates`;
+DROP TABLE IF EXISTS `{PREFIX}whatsapp_logs`;
+DROP TABLE IF EXISTS `{PREFIX}whatsapp_inbox`;
+DROP TABLE IF EXISTS `{PREFIX}otp_verifications`;
+
 -- ------------------------------------------------------------
 -- Super Admins
 -- ------------------------------------------------------------
