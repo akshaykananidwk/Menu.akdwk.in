@@ -33,6 +33,17 @@ if (!$isCli) {
         echo "Forbidden: invalid cron key.\n";
         exit;
     }
+    // Keep running even if the "poke" caller disconnected after 300ms.
+    ignore_user_abort(true);
+    @set_time_limit(180);
+}
+
+// ---- Single-worker lock: avoid overlapping runs double-sending a row --------
+$__lockFp = @fopen(ROOT_PATH . '/temp/.wa_queue.lock', 'c');
+if ($__lockFp && !flock($__lockFp, LOCK_EX | LOCK_NB)) {
+    // Another worker is already draining the queue — let it finish.
+    echo "Another worker is running.\n";
+    exit;
 }
 
 /** Emit a line to CLI stdout / HTTP body. */

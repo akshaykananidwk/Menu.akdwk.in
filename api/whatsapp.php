@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $action = $_GET['action'] ?? '';
 
 // Which actions belong to which realm. Anything not listed = unknown.
-$adminActions  = ['test', 'template_save', 'retry', 'broadcast_status', 'inbox_read'];
+$adminActions  = ['test', 'template_save', 'retry', 'broadcast_status', 'inbox_read', 'flush_queue'];
 $clientActions = ['send_menu_link', 'toggle_notify'];
 
 /** Read a trimmed POST value. */
@@ -110,6 +110,19 @@ try {
                 'status'      => $new['status'] ?? 'unknown',
                 'response'    => $new['response'] ?? '',
                 'retry_count' => (int)($new['retry_count'] ?? 0),
+            ]);
+        }
+
+        /**
+         * flush_queue — send all currently pending messages right now (manual
+         * fallback when no cron is configured).
+         */
+        case 'flush_queue': {
+            $before = (int)db_val('SELECT COUNT(*) FROM ' . tbl('whatsapp_logs') . " WHERE status = 'pending'");
+            $sent   = processWhatsAppQueue(50, 15);
+            $after  = (int)db_val('SELECT COUNT(*) FROM ' . tbl('whatsapp_logs') . " WHERE status = 'pending'");
+            jsonSuccess("Sent $sent of $before pending. $after still pending.", [
+                'sent' => $sent, 'pending' => $after,
             ]);
         }
 

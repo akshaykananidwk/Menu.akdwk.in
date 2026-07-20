@@ -201,14 +201,23 @@ require __DIR__ . '/_header.php';
   <div class="tab-pane fade" id="tab-logs">
     <div class="card border-0 shadow-sm">
       <div class="card-body">
-        <div class="d-flex gap-2 mb-2 flex-wrap">
+        <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
           <select id="logStatusFilter" class="form-select form-select-sm" style="width:auto">
             <option value="">All statuses</option>
             <option value="sent">Sent</option>
             <option value="pending">Pending</option>
             <option value="failed">Failed</option>
           </select>
+          <button class="btn btn-sm btn-success ms-auto" id="btnFlushQueue"><i class="bi bi-send"></i> Send Pending Now</button>
         </div>
+        <script>
+        document.getElementById('btnFlushQueue')?.addEventListener('click', function(){
+          const b=this; b.disabled=true; b.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending…';
+          AK.post('<?= e(BASE_URL) ?>/api/whatsapp.php?action=flush_queue',{}).then(r=>{
+            AK.handle(r, ()=>setTimeout(()=>location.reload(),1200));
+          }).finally(()=>{b.disabled=false;b.innerHTML='<i class="bi bi-send"></i> Send Pending Now';});
+        });
+        </script>
         <table class="table table-hover align-middle" id="logTable" style="width:100%">
           <thead><tr><th>ID</th><th>Tenant</th><th>Trigger</th><th>Number</th><th>Status</th><th>Retry</th><th>Created</th><th class="text-end">Action</th></tr></thead>
           <tbody>

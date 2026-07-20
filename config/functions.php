@@ -499,8 +499,51 @@ function sendWhatsApp(string $number, string $message, ?string $mediaUrl = null,
     }
     if ($immediate) {
         dispatchWhatsAppLog($logId, 10);
+    } else {
+        // Best-effort: nudge the queue to drain in the background so messages
+        // don't sit "pending" forever on hosts without a cron job configured.
+        pokeWhatsAppQueue();
     }
     return $logId;
+}
+
+/**
+ * Send up to $limit pending WhatsApp messages now. Reusable by the cron worker,
+ * the "poke" self-request, and the admin "Send pending" button.
+ * @return int number actually sent
+ */
+function processWhatsAppQueue(int $limit = 15, int $timeout = 15, int $delaySeconds = 0): int {
+    if (getWaSetting('enabled', '1') !== '1') return 0;
+    $rows = db_all('SELECT id FROM ' . tbl('whatsapp_logs') . "
+                    WHERE status = 'pending' AND retry_count < 3
+                    ORDER BY id ASC LIMIT " . max(1, $limit));
+    $sent = 0;
+    foreach ($rows as $i => $r) {
+        if ($i > 0 && $delaySeconds > 0) { sleep($delaySeconds); }
+        if (dispatchWhatsAppLog((int)$r['id'], $timeout)) { $sent++; }
+    }
+    return $sent;
+}
+
+/**
+ * Fire-and-forget loopback request that triggers the queue worker in a separate
+ * PHP process, so the current request is never blocked. This is the "poor man's
+ * cron" that makes queued messages send on shared hosts without a real cron job.
+ * A proper 1-minute cron is still recommended for guaranteed delivery.
+ */
+function pokeWhatsAppQueue(): void {
+    if (!function_exists('curl_init')) return;
+    $secret = getSetting('cron_secret', '');
+    $url = BASE_URL . '/cron/whatsapp_queue.php?key=' . urlencode($secret) . '&poke=1';
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT_MS     => 300,   // don't wait for it to finish
+        CURLOPT_NOSIGNAL       => true,
+        CURLOPT_CONNECTTIMEOUT_MS => 300,
+    ]);
+    @curl_exec($ch);
+    @curl_close($ch);
 }
 
 /** Actually POST a single queued log row to the gateway. */
