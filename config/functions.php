@@ -833,20 +833,51 @@ function mediaUrl(?string $path): string {
 
 /**
  * Record a public menu open/scan for analytics (aggregated per tenant per day).
- * Counted once per browser session per day per tenant, so refreshes don't
- * inflate the number. Never throws — analytics must not break the menu page.
+ *
+ * Counted ONCE PER DEVICE PER DAY per restaurant using a long-lived cookie, so
+ * the same phone reopening/refreshing (or fake repeat views) does not inflate
+ * the number — 100 opens from 100 different devices = 100. Works even when the
+ * QR points straight at the /r/{slug} link. The menu_views table is created
+ * on demand, so counting works even before the DB migration has run.
+ * Never throws — analytics must not break the menu page.
  */
 function recordMenuView(int $tenantId): void {
     if ($tenantId <= 0) return;
-    // Don't count the owner previewing their own menu while logged in.
+    // Don't count the owner previewing their own menu or a super admin.
     if (currentTenantId() === $tenantId || isSuperAdmin()) return;
-    $key = 'mv_' . $tenantId . '_' . date('Ymd');
-    if (!empty($_SESSION[$key])) return;
-    $_SESSION[$key] = 1;
+
+    // Per-device, per-day dedup via a cookie that resets the next morning.
+    $cookie = 'akv' . $tenantId;
+    $today  = date('Y-m-d');
+    if (($_COOKIE[$cookie] ?? '') === $today) return;
+    if (!headers_sent()) {
+        @setcookie($cookie, $today, [
+            'expires'  => strtotime('tomorrow 04:00'),
+            'path'     => '/',
+            'samesite' => 'Lax',
+        ]);
+    }
+    $_COOKIE[$cookie] = $today; // guard against a double count in this request
+
+    $sql = 'INSERT INTO ' . tbl('menu_views') . ' (tenant_id, view_date, views) VALUES (:t, CURDATE(), 1)
+            ON DUPLICATE KEY UPDATE views = views + 1';
     try {
-        db_query('INSERT INTO ' . tbl('menu_views') . ' (tenant_id, view_date, views) VALUES (:t, CURDATE(), 1)
-                  ON DUPLICATE KEY UPDATE views = views + 1', [':t' => $tenantId]);
-    } catch (Throwable $e) { /* table may not exist yet on un-migrated installs */ }
+        db_query($sql, [':t' => $tenantId]);
+    } catch (Throwable $e) {
+        // Table probably missing on an un-migrated install — create it and retry once.
+        try {
+            db_query('CREATE TABLE IF NOT EXISTS ' . tbl('menu_views') . ' (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `tenant_id` INT UNSIGNED NOT NULL,
+                `view_date` DATE NOT NULL,
+                `views` INT UNSIGNED NOT NULL DEFAULT 0,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_tenant_date` (`tenant_id`,`view_date`),
+                KEY `idx_view_date` (`view_date`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+            db_query($sql, [':t' => $tenantId]);
+        } catch (Throwable $e2) { /* give up silently */ }
+    }
 }
 
 /** Total menu views for a tenant between two dates (inclusive). */

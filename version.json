@@ -1,8 +1,10 @@
 {
-    "version": "1.0.6",
+    "version": "1.0.7",
     "released_on": "2026-07-20",
     "min_php": "8.0",
     "changelog": [
+        "Menu scan counting made robust: counts every real menu open even before the analytics migration has run (the daily-views table is auto-created on first open)",
+        "Device-based dedup: one device counts once per day (resets next morning at 4am) so refreshes and repeat opens don't inflate the number; owner/super-admin previews are never counted",
         "Discounts & Coupons: per-restaurant promo codes (flat/percent, min order, max-discount cap, usage limit, expiry) with a customer 'Have a coupon?' box in the cart and server-side re-validation on order placement",
         "Menu scan analytics: per-restaurant daily opens on client & super-admin dashboards",
         "POS-style order flow: owner Orders board simplified to New/Active, Completed and Cancelled",
