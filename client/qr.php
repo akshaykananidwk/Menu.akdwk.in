@@ -49,6 +49,7 @@ require __DIR__ . '/_header.php';
     <div class="card"><div class="card-body">
       <h6 class="fw-semibold mb-3"><i class="bi bi-file-earmark-pdf"></i> Table Standee</h6>
       <p class="text-muted small">Download a print-ready standee with your QR, restaurant name and branding.</p>
+      <a href="<?= e(BASE_URL) ?>/client/standees.php" class="btn btn-success mb-3"><i class="bi bi-easel2"></i> Browse 100+ Standee Designs</a>
       <div class="row g-2 align-items-end">
         <div class="col-md-6"><label class="form-label">Size</label>
           <select id="standeeSize" class="form-select" onchange="updateStandeeLink()">
