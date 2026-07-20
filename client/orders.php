@@ -306,7 +306,6 @@ poll();
 setInterval(poll, 5000);
 </script>
 HTML;
-require __DIR__ . '/_footer.php';
 endif;
+require __DIR__ . '/_footer.php';
 ?>
-<?php if (!$canOrder) { require __DIR__ . '/_footer.php'; } ?>

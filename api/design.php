@@ -155,6 +155,21 @@ try {
             break;
         }
 
+        // ---------------------------------------------------------------------
+        // FINISH ONBOARDING — mark the wizard complete.
+        // ---------------------------------------------------------------------
+        case 'finish_onboarding': {
+            if (isset($_POST['ordering_mode'])) {
+                $mode = in_array($_POST['ordering_mode'], ['direct', 'waiter', 'view_only'], true) ? $_POST['ordering_mode'] : 'view_only';
+                db_update('tenants', ['ordering_mode' => $mode, 'onboarded' => 1], ['id' => $tid]);
+            } else {
+                db_update('tenants', ['onboarded' => 1], ['id' => $tid]);
+            }
+            logActivity('tenant', $tid, 'Completed onboarding');
+            jsonSuccess('Setup complete!');
+            break;
+        }
+
         default:
             jsonError('Unknown action.', 404);
     }
