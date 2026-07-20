@@ -177,7 +177,7 @@ body{font-family:<?= $lang==='gu'?"'Noto Sans Gujarati',":'' ?>'Poppins',system-
             <?php endif; ?>
           </div>
           <?php if ($tenant['show_images'] && $it['image']): ?>
-            <img src="<?= e(BASE_URL.'/'.$it['image']) ?>" class="thumb" loading="lazy" alt="">
+            <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb" loading="lazy" alt="">
           <?php endif; ?>
         </div>
       <?php endforeach; ?>

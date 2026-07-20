@@ -162,7 +162,7 @@ body{font-family:<?= $lang==='gu'?"'Noto Sans Gujarati',":'' ?>'Poppins',system-
           </div>
           <div class="text-center">
             <?php if ($tenant['show_images'] && $it['image']): ?>
-              <img src="<?= e(BASE_URL.'/'.$it['image']) ?>" class="thumb mb-1" loading="lazy" alt="">
+              <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb mb-1" loading="lazy" alt="">
             <?php endif; ?>
             <?php if ($canOrder && $it['is_available']): ?>
               <button class="addbtn" onclick='openItem(<?= json_encode([

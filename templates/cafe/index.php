@@ -147,7 +147,7 @@ body{font-family:<?= $lang==='gu'?"'Noto Sans Gujarati',":'' ?>'Poppins',system-
         <div class="item" data-name="<?= e(strtolower($L($it,'name'))) ?>"
              data-veg="<?= (int)$it['is_veg'] ?>" data-best="<?= (int)$it['is_bestseller'] ?>">
           <?php if ($tenant['show_images'] && $it['image']): ?>
-            <img src="<?= e(BASE_URL.'/'.$it['image']) ?>" class="thumb" loading="lazy" alt="">
+            <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb" loading="lazy" alt="">
           <?php endif; ?>
           <div class="info">
             <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">

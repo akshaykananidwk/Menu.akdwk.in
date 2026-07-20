@@ -776,6 +776,18 @@ function geminiListModels(): array {
 // QR CODE + public URLs
 // =============================================================================
 
+/**
+ * Resolve an image/media path for display.
+ * Absolute URLs (http/https, e.g. demo photos) are returned unchanged;
+ * local upload paths get BASE_URL prefixed. Empty -> ''.
+ */
+function mediaUrl(?string $path): string {
+    $path = trim((string)$path);
+    if ($path === '') return '';
+    if (preg_match('#^https?://#i', $path)) return $path;
+    return BASE_URL . '/' . ltrim($path, '/');
+}
+
 /** Public menu URL for a tenant slug. */
 function publicMenuUrl(string $slug): string {
     return BASE_URL . '/r/' . $slug;

@@ -149,7 +149,7 @@ body{font-family:<?= $lang==='gu'?"'Noto Sans Gujarati',":'' ?>'Poppins',system-
              data-veg="<?= (int)$it['is_veg'] ?>" data-best="<?= (int)$it['is_bestseller'] ?>">
           <div class="imgwrap">
             <?php if ($tenant['show_images'] && $it['image']): ?>
-              <img src="<?= e(BASE_URL.'/'.$it['image']) ?>" class="thumb" loading="lazy" alt="">
+              <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb" loading="lazy" alt="">
             <?php else: ?>
               <div class="noimg"><i class="bi bi-cup-hot"></i></div>
             <?php endif; ?>
