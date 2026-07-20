@@ -46,13 +46,13 @@ foreach ($tenants as $t) {
     $revenue = (float)($stats['revenue'] ?? 0);
 
     // Top-selling item today by quantity.
-    $top = db_one('SELECT oi.name, SUM(oi.qty) AS qty
+    $top = db_one('SELECT oi.item_name, SUM(oi.qty) AS qty
                    FROM ' . tbl('order_items') . ' oi
                    JOIN ' . tbl('orders') . " o ON o.id = oi.order_id
                    WHERE o.tenant_id = :t AND DATE(o.created_at) = :d AND o.status <> 'cancelled'
-                   GROUP BY oi.name ORDER BY qty DESC LIMIT 1",
+                   GROUP BY oi.item_name ORDER BY qty DESC LIMIT 1",
         [':t' => $tid, ':d' => $today]);
-    $topItem = $top['name'] ?? '—';
+    $topItem = $top['item_name'] ?? '—';
 
     // Skip tenants with no owner contact.
     $mobile = $t['mobile'] ?: $t['whatsapp_no'];

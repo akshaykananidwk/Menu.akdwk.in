@@ -126,9 +126,10 @@ $base = BASE_URL;
 $csrf = csrfToken();
 $staffJs = (int)$staffId;
 $curJs = json_encode($currency);
+$slugJs = json_encode($tenant['slug']);
 echo <<<HTML
 <script>
-const B='$base', CSRF='$csrf', STAFF_ID=$staffJs, CUR=$curJs;
+const B='$base', CSRF='$csrf', STAFF_ID=$staffJs, CUR=$curJs, SLUG=$slugJs;
 const money=n=>CUR+Number(n||0).toFixed(0);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let cart=[];
@@ -197,7 +198,7 @@ function submitOrder(){
   const type=document.getElementById('cType').value;
   if(type==='dinein' && !token){ alert('Please select a table.'); return; }
   const name=document.getElementById('cName').value.trim();
-  const payload={slug:'',table_token:token,staff_id:STAFF_ID,
+  const payload={slug:SLUG,table_token:token,staff_id:STAFF_ID,
     customer_name:name||('Table '+(tableSel.selectedOptions[0]?.dataset.no||'')),
     customer_mobile:'',order_type:type,items:cart};
   document.getElementById('wmOk').disabled=true;

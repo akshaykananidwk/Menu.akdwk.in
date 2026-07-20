@@ -2,7 +2,8 @@
 /** Design & Branding: template gallery, live preview, colors/fonts/toggles/social. */
 require_once dirname(__DIR__) . '/config/config.php';
 requireClient();
-$tid = currentTenantId();
+$tid    = currentTenantId();
+$tenant = currentTenant();
 
 $pageTitle = 'Design & Branding';
 $activeNav = 'design';

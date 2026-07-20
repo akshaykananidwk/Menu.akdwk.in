@@ -2,7 +2,8 @@
 /** Client dashboard: KPIs, plan usage, quick links, 7-day orders chart. */
 require_once dirname(__DIR__) . '/config/config.php';
 requireClient();
-$tid = currentTenantId();
+$tid    = currentTenantId();
+$tenant = currentTenant();
 
 $pageTitle = 'Dashboard';
 $activeNav = 'dashboard';

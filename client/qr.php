@@ -2,7 +2,8 @@
 /** QR & Standee: public menu QR, standee downloads, per-table QR codes. */
 require_once dirname(__DIR__) . '/config/config.php';
 requireClient();
-$tid = currentTenantId();
+$tid    = currentTenantId();
+$tenant = currentTenant();
 
 $pageTitle = 'QR & Standee';
 $activeNav = 'qr';
