@@ -27,6 +27,18 @@ function upd_enc_token(string $plain): string {
     }
     return $plain;
 }
+function upd_dec_token(string $stored): string {
+    if ($stored === '') return '';
+    if (strncmp($stored, 'enc:', 4) === 0 && function_exists('openssl_decrypt')) {
+        $raw = base64_decode(substr($stored, 4), true);
+        if ($raw !== false && strlen($raw) > 16) {
+            $iv = substr($raw, 0, 16); $ct = substr($raw, 16);
+            $pt = openssl_decrypt($ct, 'aes-256-cbc', upd_secret_key(), OPENSSL_RAW_DATA, $iv);
+            if ($pt !== false) return $pt;
+        }
+    }
+    return $stored;
+}
 
 // -----------------------------------------------------------------------------
 // POST: save update settings.
@@ -35,12 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrfCheck();
     if (!isSuperAdmin()) { http_response_code(403); die('Forbidden'); }
 
-    setSetting('github_owner',  trim((string)($_POST['github_owner'] ?? '')));
-    setSetting('github_repo',   trim((string)($_POST['github_repo'] ?? '')));
+    // Single "owner/repo" field (like a standard GitHub slug) is split here.
+    $full = trim((string)($_POST['github_repo_full'] ?? ''));
+    $full = preg_replace('#^https?://github\.com/#i', '', $full);   // tolerate a pasted URL
+    $full = trim($full, '/ ');
+    if (strpos($full, '/') !== false) {
+        [$o, $r] = explode('/', $full, 2);
+        setSetting('github_owner', trim($o));
+        setSetting('github_repo',  trim(preg_replace('/\.git$/', '', $r)));
+    }
+    // Branch is free text (branch names can be long, e.g. claude/feature-xyz).
     $branch = trim((string)($_POST['github_branch'] ?? 'main'));
-    setSetting('github_branch', in_array($branch, ['main', 'stable', 'master'], true) ? $branch : 'main');
-    $channel = trim((string)($_POST['update_channel'] ?? 'manual'));
-    setSetting('update_channel', in_array($channel, ['daily', 'weekly', 'manual'], true) ? $channel : 'manual');
+    setSetting('github_branch', $branch !== '' ? $branch : 'main');
     setSetting('auto_backup', isset($_POST['auto_backup']) ? '1' : '0');
 
     // Only overwrite the token when a new value is actually typed (the field is
@@ -48,6 +66,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['github_token'] ?? '');
     if ($token !== '') {
         setSetting('github_token', upd_enc_token(trim($token)));
+    }
+
+    // Baseline the installed commit the first time settings are saved, so the
+    // freshly-deployed code reads as "up to date" (future commits show as updates).
+    if ((string)getSetting('installed_commit', '') === '') {
+        $o = trim((string)getSetting('github_owner', ''));
+        $r = trim((string)getSetting('github_repo', ''));
+        $b = trim((string)getSetting('github_branch', 'main')) ?: 'main';
+        $tk = upd_dec_token((string)getSetting('github_token', ''));
+        if ($o !== '' && $r !== '' && function_exists('curl_init')) {
+            $h = ['User-Agent: AK-Menu-System', 'Accept: application/vnd.github+json'];
+            if ($tk !== '') { $h[] = 'Authorization: token ' . $tk; }
+            $ch = curl_init('https://api.github.com/repos/' . rawurlencode($o) . '/' . rawurlencode($r) . '/commits/' . rawurlencode($b));
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $h, CURLOPT_TIMEOUT => 20, CURLOPT_FOLLOWLOCATION => true]);
+            $resp = curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code >= 200 && $code < 300) {
+                $sha = json_decode((string)$resp, true)['sha'] ?? '';
+                if ($sha) { setSetting('installed_commit', $sha); }
+            }
+        }
     }
 
     logActivity('admin', (int)($_SESSION['admin_id'] ?? 0), 'Updated GitHub update settings');
@@ -98,9 +138,10 @@ require __DIR__ . '/_header.php';
         <div class="d-flex justify-content-between align-items-start mb-3">
           <div>
             <h5 class="card-title mb-1"><i class="bi bi-cloud-arrow-down"></i> System Updates</h5>
-            <div class="text-muted small">Keep AK Menu System up to date from GitHub releases.</div>
+            <div class="text-muted small">Set the repo/branch once, then Check &amp; Update straight from GitHub — no releases needed. <code>config/db.php</code> and <code>uploads/</code> are never touched.</div>
           </div>
-          <span class="badge bg-secondary fs-6">v<?= e($appVer) ?></span>
+          <?php $instShort = ($ic = (string)getSetting('installed_commit', '')) !== '' ? substr($ic, 0, 7) : ('v' . $appVer); ?>
+          <span class="badge bg-secondary fs-6" title="Installed commit / version"><?= e($instShort) ?></span>
         </div>
 
         <div id="checkResult" class="border rounded p-3 bg-light-subtle mb-3">
@@ -127,30 +168,15 @@ require __DIR__ . '/_header.php';
         <form method="post" action="<?= e(BASE_URL) ?>/admin/updates.php">
           <?= csrfField() ?>
           <div class="mb-2">
-            <label class="form-label small mb-1">GitHub Owner</label>
-            <input type="text" name="github_owner" class="form-control form-control-sm" value="<?= e($owner) ?>" placeholder="akdwk">
+            <label class="form-label small mb-1">GitHub repo <span class="text-muted">(owner/repo)</span></label>
+            <input type="text" name="github_repo_full" class="form-control form-control-sm"
+                   value="<?= e($owner !== '' && $repo !== '' ? $owner . '/' . $repo : '') ?>"
+                   placeholder="akshaykananidwk/menu.akdwk.in">
           </div>
           <div class="mb-2">
-            <label class="form-label small mb-1">Repository</label>
-            <input type="text" name="github_repo" class="form-control form-control-sm" value="<?= e($repo) ?>" placeholder="ak-menu-system">
-          </div>
-          <div class="row g-2">
-            <div class="col-6 mb-2">
-              <label class="form-label small mb-1">Branch</label>
-              <select name="github_branch" class="form-select form-select-sm">
-                <option value="main"   <?= $branch === 'main' ? 'selected' : '' ?>>main</option>
-                <option value="stable" <?= $branch === 'stable' ? 'selected' : '' ?>>stable</option>
-                <option value="master" <?= $branch === 'master' ? 'selected' : '' ?>>master</option>
-              </select>
-            </div>
-            <div class="col-6 mb-2">
-              <label class="form-label small mb-1">Channel</label>
-              <select name="update_channel" class="form-select form-select-sm">
-                <option value="manual" <?= $channel === 'manual' ? 'selected' : '' ?>>Manual</option>
-                <option value="daily"  <?= $channel === 'daily' ? 'selected' : '' ?>>Daily</option>
-                <option value="weekly" <?= $channel === 'weekly' ? 'selected' : '' ?>>Weekly</option>
-              </select>
-            </div>
+            <label class="form-label small mb-1">Branch</label>
+            <input type="text" name="github_branch" class="form-control form-control-sm"
+                   value="<?= e($branch) ?>" placeholder="main">
           </div>
           <div class="mb-2">
             <label class="form-label small mb-1">
@@ -298,19 +324,19 @@ $pageScript = <<<HTML
       if(!d.reachable){
         elResult.innerHTML = '<div class="text-danger"><i class="bi bi-exclamation-triangle"></i> '+
           (d.error||'Could not reach GitHub.')+'</div>'+
-          '<div class="small text-muted mt-1">Current version: v'+(d.current||'?')+'</div>';
+          '<div class="small text-muted mt-1">Installed: '+(d.current||'?')+'</div>';
         btnUpdate.disabled = true;
       } else if(d.newer){
         latestZip = d.zipball_url;
         elResult.innerHTML =
           '<div class="d-flex align-items-center gap-2 mb-2">'+
           '<span class="badge bg-success">Update available</span>'+
-          '<b>v'+d.latest+'</b> <span class="text-muted small">(you have v'+d.current+')</span></div>'+
-          (d.released?('<div class="small text-muted mb-2">Released: '+new Date(d.released).toLocaleDateString()+'</div>'):'')+
+          '<b>'+d.latest+'</b> <span class="text-muted small">(installed: '+d.current+')</span></div>'+
+          (d.released?('<div class="small text-muted mb-2">Latest commit: '+new Date(d.released).toLocaleString()+'</div>'):'')+
           '<div class="border-top pt-2 small" style="max-height:180px;overflow:auto">'+mdMini(d.changelog||'No changelog.')+'</div>';
         btnUpdate.disabled = false;
       } else {
-        elResult.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> You are on the latest version (v'+d.current+').</div>';
+        elResult.innerHTML = '<div class="text-success"><i class="bi bi-check-circle"></i> You are up to date ('+d.current+').</div>';
         btnUpdate.disabled = true;
       }
     }).catch(function(){

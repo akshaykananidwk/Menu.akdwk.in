@@ -131,6 +131,62 @@ function ak_clean_version(string $tag): string {
     return ltrim(trim($tag), 'vV');
 }
 
+/**
+ * Fetch the latest commit on the configured branch (no GitHub Release needed).
+ * This powers the simple "set repo/branch once, update straight from the branch"
+ * flow. Returns sha, short sha, message, date and the branch zipball URL.
+ * @return array{ok:bool, sha:string, short:string, message:string, date:string, zipball:string, error:string, http:int}
+ */
+function ak_github_latest_commit(): array {
+    $owner  = trim((string)getSetting('github_owner', ''));
+    $repo   = trim((string)getSetting('github_repo', ''));
+    $branch = trim((string)getSetting('github_branch', 'main')) ?: 'main';
+    $token  = ak_dec_token((string)getSetting('github_token', ''));
+
+    $fail = fn(string $m, int $h = 0) => ['ok' => false, 'sha' => '', 'short' => '', 'message' => '', 'date' => '', 'zipball' => '', 'error' => $m, 'http' => $h];
+    if ($owner === '' || $repo === '') { return $fail('GitHub repo not set. Enter it as owner/repo.'); }
+    if (!function_exists('curl_init')) { return $fail('cURL extension is not available.'); }
+
+    $url = 'https://api.github.com/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/commits/' . rawurlencode($branch);
+    $headers = ['User-Agent: AK-Menu-System', 'Accept: application/vnd.github+json'];
+    if ($token !== '') { $headers[] = 'Authorization: token ' . $token; }
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_TIMEOUT        => 25,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+    ]);
+    $resp = curl_exec($ch);
+    $err  = curl_error($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($resp === false) { return $fail('Network error: ' . ($err ?: 'unknown')); }
+    if ($http === 404) { return $fail('Repo or branch not found. Check owner/repo and branch name.', 404); }
+    if ($http === 401 || $http === 403) { return $fail('Access denied (HTTP ' . $http . '). For a private repo add a valid GitHub token.', $http); }
+    if ($http < 200 || $http >= 300) {
+        $j = json_decode((string)$resp, true);
+        return $fail('GitHub API error: ' . ($j['message'] ?? ('HTTP ' . $http)), $http);
+    }
+    $data = json_decode((string)$resp, true);
+    $sha = (string)($data['sha'] ?? '');
+    if ($sha === '') { return $fail('Malformed response from GitHub.', $http); }
+
+    return [
+        'ok'      => true,
+        'sha'     => $sha,
+        'short'   => substr($sha, 0, 7),
+        'message' => (string)($data['commit']['message'] ?? ''),
+        'date'    => (string)($data['commit']['author']['date'] ?? ''),
+        'zipball' => 'https://api.github.com/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/zipball/' . rawurlencode($branch),
+        'error'   => '',
+        'http'    => $http,
+    ];
+}
+
 // =============================================================================
 // PROGRESS / STEP LOG helpers.
 // The step log is stored as JSON in update_logs.log_text so `progress` can
@@ -635,17 +691,15 @@ function ak_run_pipeline(array $source): void {
     if (function_exists('opcache_reset')) { @opcache_reset(); }
     ak_step($logId, $steps, 'Clear cache', 'done', 'Asset cache cleared and opcache reset.');
 
-    // ---- Step 10: write new version ----------------------------------------
-    setSetting('app_version', $target);
+    // ---- Step 10: record installed commit + version ------------------------
+    // The archive we just copied ships its own version.json — read the semantic
+    // version from there; track the git commit separately for the "up to date?"
+    // comparison and the version badge.
+    if (!empty($source['commit'])) { setSetting('installed_commit', (string)$source['commit']); }
+    $vj = @json_decode((string)@file_get_contents(ROOT_PATH . '/version.json'), true);
+    if (!empty($vj['version'])) { setSetting('app_version', (string)$vj['version']); }
     setSetting('update_available', '0');
-    // Best-effort: keep version.json in sync (non-fatal if not writable).
-    $vjson = ROOT_PATH . '/version.json';
-    if (is_writable($vjson) || is_writable(dirname($vjson))) {
-        @file_put_contents($vjson, json_encode([
-            'version' => $target, 'released_on' => date('Y-m-d'), 'min_php' => '8.0',
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-    }
-    ak_step($logId, $steps, 'Finalize', 'done', 'Version set to ' . $target . '.');
+    ak_step($logId, $steps, 'Finalize', 'done', 'Now running commit ' . $target . '.');
 
     // ---- Step 11: cleanup temp ---------------------------------------------
     ak_empty_dir(ROOT_PATH . '/temp');
@@ -683,33 +737,34 @@ try {
         // CHECK — read-only version check against GitHub.
         // ---------------------------------------------------------------------
         case 'check': {
-            $current = (string)getSetting('app_version', APP_VERSION);
-            $res = ak_github_latest_release();
+            // Commit-based: compare the branch's latest commit with what we run.
+            $installed = (string)getSetting('installed_commit', '');
+            $appVer    = (string)getSetting('app_version', APP_VERSION);
+            $currentLabel = $installed !== '' ? substr($installed, 0, 7) : ('v' . $appVer);
+
+            $res = ak_github_latest_commit();
             if (!$res['ok']) {
-                // Graceful: never fatal on network/API failure.
                 jsonSuccess('Could not reach GitHub.', [
-                    'current'   => $current,
+                    'current'   => $currentLabel,
                     'latest'    => null,
                     'newer'     => false,
                     'error'     => $res['error'],
                     'reachable' => false,
                 ]);
             }
-            $rel     = $res['data'];
-            $latest  = ak_clean_version((string)($rel['tag_name'] ?? ''));
-            $newer   = $latest !== '' && version_compare($latest, $current, '>');
+            // First run (no baseline) counts as "update available".
+            $newer = ($installed === '' || $res['sha'] !== $installed);
             setSetting('update_available', $newer ? '1' : '0');
 
             jsonSuccess('Checked.', [
-                'current'     => $current,
-                'latest'      => $latest,
-                'newer'       => $newer,
-                'reachable'   => true,
-                'released'    => $rel['published_at'] ?? null,
-                'changelog'   => (string)($rel['body'] ?? ''),
-                'name'        => $rel['name'] ?? $rel['tag_name'] ?? '',
-                'zipball_url' => $rel['zipball_url'] ?? null,
-                'html_url'    => $rel['html_url'] ?? null,
+                'current'   => $currentLabel,
+                'latest'    => $res['short'],
+                'newer'     => $newer,
+                'reachable' => true,
+                'released'  => $res['date'],
+                'changelog' => $res['message'],
+                'name'      => 'commit ' . $res['short'],
+                'sha'       => $res['sha'],
             ]);
             break;
         }
@@ -719,21 +774,20 @@ try {
         // ---------------------------------------------------------------------
         case 'run': {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonError('POST required.', 405); }
-            $res = ak_github_latest_release();
+            $res = ak_github_latest_commit();
             if (!$res['ok']) { jsonError('Cannot start update: ' . $res['error'], 502); }
-            $rel     = $res['data'];
-            $latest  = ak_clean_version((string)($rel['tag_name'] ?? ''));
-            $current = (string)getSetting('app_version', APP_VERSION);
-            if ($latest === '') { jsonError('Release has no tag/version.', 422); }
-            if (!version_compare($latest, $current, '>')) {
-                jsonError('You are already on the latest version (' . $current . ').', 409);
+            $installed = (string)getSetting('installed_commit', '');
+            // Allow re-pull when forced, else block if already on that commit.
+            $force = !empty($_POST['force']);
+            if (!$force && $installed !== '' && $res['sha'] === $installed) {
+                jsonError('You are already on the latest commit (' . $res['short'] . ').', 409);
             }
-            if (empty($rel['zipball_url'])) { jsonError('Release has no downloadable archive.', 422); }
 
             ak_run_pipeline([
                 'type'    => 'github',
-                'zipball' => $rel['zipball_url'],
-                'version' => $latest,
+                'zipball' => $res['zipball'],
+                'version' => $res['short'],
+                'commit'  => $res['sha'],
             ]);
             break;
         }
