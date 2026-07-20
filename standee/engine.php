@@ -23,25 +23,34 @@ if (!function_exists('se_render')) {
     // Fonts
     // =========================================================================
 
+    // Fonts are BUNDLED in libs/fonts first (shared cPanel hosts usually have no
+    // system DejaVu fonts, which made all standee text silently disappear).
     function se_font_bold(): string
     {
-        foreach (['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf'] as $f) {
-            if (is_file($f)) { return $f; }
-        }
-        return '';
+        foreach ([
+            LIB_PATH . '/fonts/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+        ] as $f) { if (is_file($f)) { return $f; } }
+        return se_font_reg();
     }
     function se_font_reg(): string
     {
-        foreach (['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/dejavu/DejaVuSans.ttf'] as $f) {
-            if (is_file($f)) { return $f; }
-        }
+        foreach ([
+            LIB_PATH . '/fonts/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+            LIB_PATH . '/fonts/NotoSansGujarati-Regular.ttf', // last-resort: still a real TTF
+        ] as $f) { if (is_file($f)) { return $f; } }
         return '';
     }
     function se_font_serif(): string
     {
-        foreach (['/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf'] as $f) {
-            if (is_file($f)) { return $f; }
-        }
+        foreach ([
+            LIB_PATH . '/fonts/DejaVuSerif-Bold.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf',
+            '/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf',
+        ] as $f) { if (is_file($f)) { return $f; } }
         return se_font_bold();
     }
     /** Bundled Gujarati font for "મેનુ માટે સ્કેન કરો". */
