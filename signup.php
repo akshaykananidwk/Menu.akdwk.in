@@ -176,6 +176,7 @@ function submitSignup(skip){
   goStep(3);
   const fd = new FormData(document.getElementById('signupForm'));
   fd.delete('menu_files[]');
+  fd.delete('website'); // drop the honeypot (mobile browsers auto-fill it)
   if(!skip){ files.forEach(f=>fd.append('menu_files[]', f)); }
   document.getElementById('procMsg').textContent = skip
     ? 'Setting up your restaurant…'

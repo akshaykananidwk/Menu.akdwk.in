@@ -19,7 +19,11 @@ csrfCheck();
 // ---- Anti-abuse -------------------------------------------------------------
 $ip = clientIp();
 if (isLoginLocked('signup:' . $ip)) { jsonError('Too many attempts. Please try again in a few minutes.', 429); }
-if (!empty($_POST['website'])) { jsonError('Spam detected.', 400); } // honeypot
+// Honeypot: only treat as spam if the hidden field looks like injected spam
+// (a URL). Mobile browsers auto-fill hidden fields, so a plain value is NOT
+// enough to reject — that was blocking real signups.
+$hp = trim((string)($_POST['website'] ?? ''));
+if ($hp !== '' && preg_match('#https?://|www\.#i', $hp)) { jsonError('Spam detected.', 400); }
 
 // ---- Validate ---------------------------------------------------------------
 $name  = trim($_POST['restaurant_name'] ?? '');
