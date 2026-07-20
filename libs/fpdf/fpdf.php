@@ -290,6 +290,8 @@ class FPDF
 
     public function GetX(): float { return $this->x; }
     public function GetY(): float { return $this->y; }
+    public function GetPageWidth(): float { return $this->w; }
+    public function GetPageHeight(): float { return $this->h; }
     public function SetX(float $x): void { $this->x = $x >= 0 ? $x : $this->w + $x; }
     public function SetY(float $y, bool $resetX = true): void
     {
@@ -530,26 +532,111 @@ class FPDF
 
     protected function enddoc(): void
     {
+        $nb = $this->page;
+        if ($this->aliasNbPages !== '') {
+            for ($p = 1; $p <= $nb; $p++) {
+                $this->pages[$p] = str_replace($this->aliasNbPages, (string)$nb, $this->pages[$p]);
+            }
+        }
+
+        // --- Pre-assign every object number so all cross-references resolve. ---
+        // 1 = Pages tree. Then per page: page obj + content obj. Then fonts,
+        // images, resource dict, info, catalog.
+        $num = 1; // object 1 is the Pages tree
+        $pageN = [];
+        $contentN = [];
+        for ($p = 1; $p <= $nb; $p++) {
+            $pageN[$p]    = ++$num;
+            $contentN[$p] = ++$num;
+        }
+        $fontN = [];
+        foreach ($this->fonts as $font) { $fontN[$font['i']] = ++$num; }
+        $imgN = [];
+        foreach ($this->images as $img) { $imgN[$img['i']] = ++$num; }
+        $resourceN = ++$num;
+        $infoN     = ++$num;
+        $catN      = ++$num;
+        $this->n   = $num; // highest object number (for xref)
+
+        // --- Emit the file ---
         $this->buffer = '';
         $this->put('%PDF-1.3');
         $this->put('%' . chr(0xE2) . chr(0xE3) . chr(0xCF) . chr(0xD3)); // binary marker
 
-        $this->putPages();
-        $this->putResources();
+        // Pages tree (object 1).
+        $kids = [];
+        foreach ($pageN as $p => $n) { $kids[] = $n . ' 0 R'; }
+        $this->newobj(1);
+        $this->put('<< /Type /Pages /Kids [' . implode(' ', $kids) . '] /Count ' . $nb
+            . ' /MediaBox [0 0 ' . sprintf('%.2F %.2F', $this->wPt, $this->hPt) . '] >>');
+        $this->put('endobj');
 
-        // Info
-        $this->newobj();
+        // Page + content stream objects.
+        for ($p = 1; $p <= $nb; $p++) {
+            $this->newobj($pageN[$p]);
+            $this->put('<< /Type /Page /Parent 1 0 R');
+            $this->put('/MediaBox [0 0 ' . sprintf('%.2F %.2F', $this->wPt, $this->hPt) . ']');
+            $this->put('/Resources ' . $resourceN . ' 0 R');
+            $this->put('/Contents ' . $contentN[$p] . ' 0 R >>');
+            $this->put('endobj');
+
+            $content = $this->pages[$p];
+            $this->newobj($contentN[$p]);
+            $this->put('<< /Length ' . strlen($content) . ' >>');
+            $this->putStream($content);
+            $this->put('endobj');
+        }
+
+        // Font objects (standard 14, WinAnsi).
+        foreach ($this->fonts as $font) {
+            $this->newobj($fontN[$font['i']]);
+            $this->put('<< /Type /Font /Subtype /Type1 /BaseFont /' . $font['name']
+                . ' /Encoding /WinAnsiEncoding >>');
+            $this->put('endobj');
+        }
+
+        // Image XObjects.
+        foreach ($this->images as $img) {
+            $this->newobj($imgN[$img['i']]);
+            $this->put('<< /Type /XObject /Subtype /Image /Width ' . $img['w']
+                . ' /Height ' . $img['h']
+                . ' /ColorSpace /' . $img['cs']
+                . ' /BitsPerComponent ' . $img['bpc']
+                . ' /Filter /' . $img['f']
+                . ' /Length ' . strlen($img['data']) . ' >>');
+            $this->putStream($img['data']);
+            $this->put('endobj');
+        }
+
+        // Resource dictionary.
+        $this->newobj($resourceN);
+        $s = '<< /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
+        $s .= ' /Font <<';
+        foreach ($this->fonts as $font) {
+            $s .= ' /F' . $font['i'] . ' ' . $fontN[$font['i']] . ' 0 R';
+        }
+        $s .= ' >>';
+        if ($imgN) {
+            $s .= ' /XObject <<';
+            foreach ($this->images as $img) {
+                $s .= ' /I' . $img['i'] . ' ' . $imgN[$img['i']] . ' 0 R';
+            }
+            $s .= ' >>';
+        }
+        $s .= ' >>';
+        $this->put($s);
+        $this->put('endobj');
+
+        // Info + Catalog.
+        $this->newobj($infoN);
         $this->put('<< /Producer (AK Menu System FPDF) /CreationDate (D:' . date('YmdHis') . ') >>');
         $this->put('endobj');
-        $infoN = $this->n;
 
-        // Catalog
-        $this->newobj();
+        $this->newobj($catN);
         $this->put('<< /Type /Catalog /Pages 1 0 R >>');
         $this->put('endobj');
-        $catN = $this->n;
 
-        // Cross-reference table
+        // Cross-reference table.
         $xref = strlen($this->buffer);
         $count = $this->n + 1;
         $this->put('xref');
@@ -563,106 +650,6 @@ class FPDF
         $this->put('startxref');
         $this->put((string)$xref);
         $this->put('%%EOF');
-    }
-
-    protected function putPages(): void
-    {
-        $nb = $this->page;
-        if ($this->aliasNbPages !== '') {
-            for ($n = 1; $n <= $nb; $n++) {
-                $this->pages[$n] = str_replace($this->aliasNbPages, (string)$nb, $this->pages[$n]);
-            }
-        }
-
-        // Object 1 = Pages tree; each page = obj, each content = obj.
-        // Reserve object numbers: pages tree is obj 1.
-        $this->offsets[1] = null; // placeholder, filled below in order
-
-        // We assign: obj1 = Pages, then per page: page obj + content obj.
-        $kids = [];
-        $pageObjStart = 2;
-        // First emit content + page objects (numbers start at 2).
-        $this->n = 1;
-        for ($n = 1; $n <= $nb; $n++) {
-            // Page object
-            $this->newobj();
-            $pageN = $this->n;
-            $kids[] = $pageN . ' 0 R';
-            $this->put('<< /Type /Page /Parent 1 0 R');
-            $this->put('/MediaBox [0 0 ' . sprintf('%.2F %.2F', $this->wPt, $this->hPt) . ']');
-            $this->put('/Resources 2 0 R'); // placeholder replaced? we set resources obj below via fixed ref
-            $this->put('/Contents ' . ($this->n + 1) . ' 0 R >>');
-            $this->put('endobj');
-
-            // Content stream object
-            $content = $this->pages[$n];
-            $this->newobj();
-            $this->put('<< /Length ' . strlen($content) . ' >>');
-            $this->putStream($content);
-            $this->put('endobj');
-        }
-
-        // Pages tree (object 1).
-        $this->offsets[1] = strlen($this->buffer);
-        $this->put('1 0 obj');
-        $this->put('<< /Type /Pages /Kids [' . implode(' ', $kids) . '] /Count ' . $nb
-            . ' /MediaBox [0 0 ' . sprintf('%.2F %.2F', $this->wPt, $this->hPt) . '] >>');
-        $this->put('endobj');
-
-        // Fix each page's /Resources reference to point at the resource dict,
-        // which we assign as the object right after all page/content objects.
-        $this->resourceObjNum = $this->n + 1;
-        $fixed = str_replace('/Resources 2 0 R', '/Resources ' . $this->resourceObjNum . ' 0 R', $this->buffer);
-        $this->buffer = $fixed;
-    }
-
-    protected int $resourceObjNum = 0;
-
-    protected function putResources(): void
-    {
-        // Fonts
-        $fontRefs = [];
-        foreach ($this->fonts as $key => $font) {
-            $this->newobj();
-            $fontRefs[$font['i']] = $this->n;
-            $this->put('<< /Type /Font /Subtype /Type1 /BaseFont /' . $font['name']
-                . ' /Encoding /WinAnsiEncoding >>');
-            $this->put('endobj');
-        }
-
-        // Images
-        $imgRefs = [];
-        foreach ($this->images as $file => $img) {
-            $this->newobj();
-            $imgRefs[$img['i']] = $this->n;
-            $this->put('<< /Type /XObject /Subtype /Image /Width ' . $img['w']
-                . ' /Height ' . $img['h']
-                . ' /ColorSpace /' . $img['cs']
-                . ' /BitsPerComponent ' . $img['bpc']
-                . ' /Filter /' . $img['f']
-                . ' /Length ' . strlen($img['data']) . ' >>');
-            $this->putStream($img['data']);
-            $this->put('endobj');
-        }
-
-        // Resource dictionary (its object number was reserved as resourceObjNum).
-        $this->newobj($this->resourceObjNum);
-        $s = '<< /ProcSet [/PDF /Text /ImageB /ImageC /ImageI]';
-        $s .= ' /Font <<';
-        foreach ($this->fonts as $font) {
-            $s .= ' /F' . $font['i'] . ' ' . $fontRefs[$font['i']] . ' 0 R';
-        }
-        $s .= ' >>';
-        if ($imgRefs) {
-            $s .= ' /XObject <<';
-            foreach ($this->images as $img) {
-                $s .= ' /I' . $img['i'] . ' ' . $imgRefs[$img['i']] . ' 0 R';
-            }
-            $s .= ' >>';
-        }
-        $s .= ' >>';
-        $this->put($s);
-        $this->put('endobj');
     }
 
     protected function escape(string $s): string

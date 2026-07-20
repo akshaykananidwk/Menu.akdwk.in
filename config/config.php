@@ -24,7 +24,7 @@ $__scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https'
 $__host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
 // Derive the web root: strip /config, /admin, /client ... from script dir.
 $__docroot = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
-$__docroot = preg_replace('#/(admin|client|waiter|kitchen|api|r|install|cron|config).*$#', '', $__docroot);
+$__docroot = preg_replace('#/(admin|client|waiter|kitchen|api|r|install|cron|config|standee|templates).*$#', '', $__docroot);
 $__docroot = rtrim($__docroot, '/');
 define('BASE_URL', rtrim($__scheme . '://' . $__host . $__docroot, '/'));
 
