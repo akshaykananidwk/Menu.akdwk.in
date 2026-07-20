@@ -56,7 +56,10 @@ try {
             $absFile  = $dir . '/' . $fileName;
             $relFile  = 'uploads/standee/' . $fileName;
 
-            $img = se_render($tenant, $qrAbs, $design, 1080, 1920);
+            // Resolve config: saved per-tenant settings, with optional POST
+            // overrides so what the owner sees in the preview is what is sent.
+            $cfg = se_resolve_config($tenant, $tid, $_POST);
+            $img = se_render($tenant, $qrAbs, $design, 1080, 1920, $cfg);
             $ok  = imagepng($img, $absFile);
             imagedestroy($img);
             if (!$ok || !is_file($absFile)) { jsonError('Could not create the standee image.', 500); }
@@ -86,6 +89,18 @@ try {
             setSetting('standee_design_' . $tid, $designId);
             logActivity('client', $tid, 'Set default standee design ' . $designId);
             jsonSuccess('Saved as your default design.', ['design' => $designId]);
+            break;
+        }
+
+        // ---------------------------------------------------------------------
+        // SAVE CONFIG — persist the tenant's editable standee text/language.
+        // ---------------------------------------------------------------------
+        case 'save_cfg': {
+            // se_extract_overrides sanitises + length-caps every field.
+            $cfg = array_merge(se_config_defaults($tenant), se_extract_overrides($_POST));
+            setSetting('standee_cfg_' . $tid, json_encode($cfg, JSON_UNESCAPED_UNICODE));
+            logActivity('client', $tid, 'Saved standee customisation');
+            jsonSuccess('Standee text saved.', ['config' => $cfg]);
             break;
         }
 

@@ -399,14 +399,78 @@ if (!function_exists('se_render')) {
     }
 
     // =========================================================================
+    // Editable per-tenant configuration (text + language overrides)
+    // =========================================================================
+
+    /** Default standee text config for a tenant (all-English by default). */
+    function se_config_defaults(array $tenant): array
+    {
+        $mobile = trim((string)($tenant['whatsapp_no'] ?? ($tenant['mobile'] ?? '')));
+        return [
+            'heading'      => 'WELCOME TO',
+            'name'         => (string)($tenant['restaurant_name'] ?? ''),
+            'cta'          => 'SCAN FOR MENU',
+            'lang'         => 'en',           // en | gu | both  (English is the default)
+            'tagline'      => '',
+            'show_contact' => true,
+            'contact'      => $mobile !== '' ? 'Call / WhatsApp: ' . $mobile : '',
+            'show_stars'   => true,
+            'footer_extra' => '',
+        ];
+    }
+
+    /** Strip control chars, trim and length-cap a free-text field. */
+    function se_clean_text($v, int $max): string
+    {
+        $v = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', (string)$v);
+        $v = trim((string)$v);
+        return mb_strlen($v) > $max ? mb_substr($v, 0, $max) : $v;
+    }
+
+    /** Pull only the recognised, sanitised config keys out of a raw array. */
+    function se_extract_overrides(array $raw): array
+    {
+        $o = [];
+        $text = ['heading' => 40, 'name' => 80, 'cta' => 40, 'tagline' => 60, 'contact' => 80, 'footer_extra' => 60];
+        foreach ($text as $k => $max) {
+            if (array_key_exists($k, $raw)) { $o[$k] = se_clean_text($raw[$k], $max); }
+        }
+        if (array_key_exists('lang', $raw)) {
+            $l = strtolower(trim((string)$raw['lang']));
+            $o['lang'] = in_array($l, ['en', 'gu', 'both'], true) ? $l : 'en';
+        }
+        foreach (['show_contact', 'show_stars'] as $b) {
+            if (array_key_exists($b, $raw)) { $o[$b] = in_array((string)$raw[$b], ['1', 'true', 'on', 'yes'], true); }
+        }
+        return $o;
+    }
+
+    /**
+     * Resolve the effective config.
+     * Priority: raw overrides (GET/POST live preview) > saved per-tenant JSON > defaults.
+     */
+    function se_resolve_config(array $tenant, ?int $tid, array $raw): array
+    {
+        $cfg = se_config_defaults($tenant);
+        if ($tid) {
+            $saved = getSetting('standee_cfg_' . $tid, '');
+            if ($saved) {
+                $j = json_decode((string)$saved, true);
+                if (is_array($j)) { $cfg = array_merge($cfg, se_extract_overrides($j)); }
+            }
+        }
+        return array_merge($cfg, se_extract_overrides($raw));
+    }
+
+    // =========================================================================
     // Name hero pill
     // =========================================================================
 
     /**
-     * The visual hero: a rounded pill with a small "Welcome to" label and the
+     * The visual hero: a rounded pill with an optional heading label and the
      * BIG auto-fitting restaurant name. Long names wrap to 2 lines and shrink.
      */
-    function se_name_hero($im, array $tenant, int $cx, int $y1, int $y2, int $boxW, array $o, int $W): void
+    function se_name_hero($im, string $printName, string $heading, int $cx, int $y1, int $y2, int $boxW, array $o, int $W): void
     {
         $x1 = (int)($cx - $boxW / 2); $x2 = (int)($cx + $boxW / 2);
         $r  = (int)(($y2 - $y1) * 0.32);
@@ -423,15 +487,16 @@ if (!function_exists('se_render')) {
         $fontReg  = se_font_reg();
         $fontBold = $o['name_font'] ?? se_font_bold();
 
-        // "Welcome to" label near the top of the pill.
-        $labelY = (int)($y1 + ($y2 - $y1) * 0.30);
-        if ($fontReg !== '') {
-            se_text_center_tracked($im, $o['welcome_text_label'] ?? 'WELCOME TO', $fontReg, $W * 0.026, $cx, $labelY, se_col($im, $o['welcome_text']), $W * 0.006);
+        // Optional heading label near the top of the pill (blank => hidden).
+        $hasHeading = trim($heading) !== '';
+        if ($hasHeading && $fontReg !== '') {
+            $labelY = (int)($y1 + ($y2 - $y1) * 0.30);
+            se_text_center_tracked($im, $heading, $fontReg, $W * 0.026, $cx, $labelY, se_col($im, $o['welcome_text']), $W * 0.006);
         }
 
         // Big restaurant name filling the rest of the pill.
-        $name = trim((string)($tenant['restaurant_name'] ?? 'Restaurant')) ?: 'Restaurant';
-        $nameTop = (int)($y1 + ($y2 - $y1) * 0.40);
+        $name = trim($printName) !== '' ? trim($printName) : 'Restaurant';
+        $nameTop = (int)($y1 + ($y2 - $y1) * ($hasHeading ? 0.40 : 0.16));
         $nameCY  = (int)(($nameTop + $y2) / 2);
         $maxW = (int)($boxW * 0.86);
         $maxH = (int)($y2 - $nameTop - ($y2 - $y1) * 0.10);
@@ -733,12 +798,19 @@ if (!function_exists('se_render')) {
      * @param string $qrAbs   absolute path to the tenant's QR PNG
      * @param array  $design  resolved design (['family'=>…, 'palette'=>…])
      * @param int    $W,$H    output size in px
+     * @param array  $cfg     resolved text/language config (see se_resolve_config).
+     *                        When empty, defaults for this tenant are used.
      */
-    function se_render(array $tenant, string $qrAbs, array $design, int $W, int $H)
+    function se_render(array $tenant, string $qrAbs, array $design, int $W, int $H, array $cfg = [])
     {
         $family = $design['family'];
         $pal     = $design['palette'];
         $style   = $family['style'] ?? 'corners';
+
+        // Merge in defaults so callers may pass a partial (or empty) config.
+        $cfg = array_merge(se_config_defaults($tenant), $cfg);
+        $printName = trim((string)$cfg['name']) !== '' ? (string)$cfg['name'] : (string)($tenant['restaurant_name'] ?? 'Restaurant');
+        $tenantR = $tenant; $tenantR['restaurant_name'] = $printName; // badge initials follow the printed name
 
         $im = imagecreatetruecolor($W, $H);
         imagealphablending($im, true);
@@ -751,25 +823,33 @@ if (!function_exists('se_render')) {
         // 1) Background + per-style foreground options.
         $o = se_bg($im, $style, $pal, $W, $H);
         $cx = $o['cx'];
+        $taglineColor = se_col($im, se_mix(se_hex($pal['ink']), [255, 255, 255], 0.12));
 
         // 2) Brand badge (top). Sidebar draws its own on the bar.
+        $logoAbs = se_safe_logo($tenant['logo'] ?? '');
         if (empty($o['skip_badge'])) {
-            $logoAbs = se_safe_logo($tenant['logo'] ?? '');
-            se_brand_badge($im, $tenant, $logoAbs, $cx, (int)($H * 0.085), (int)($W * 0.062), $o['badge_ring'], $fontBold);
+            se_brand_badge($im, $tenantR, $logoAbs, $cx, (int)($H * 0.085), (int)($W * 0.062), $o['badge_ring'], $fontBold);
         } else {
-            $logoAbs = se_safe_logo($tenant['logo'] ?? '');
-            se_brand_badge($im, $tenant, $logoAbs, (int)($W * 0.12), (int)($H * 0.11), (int)($W * 0.072), $o['badge_ring'], $fontBold);
+            se_brand_badge($im, $tenantR, $logoAbs, (int)($W * 0.12), (int)($H * 0.11), (int)($W * 0.072), $o['badge_ring'], $fontBold);
         }
 
         // 3) Name — hero pill, OR on the ribbon for the ribbon family.
         if (empty($o['skip_name'])) {
-            se_name_hero($im, $tenant, $cx, (int)($H * 0.15), (int)($H * 0.285), $o['cw'], $o, $W);
+            se_name_hero($im, $printName, (string)$cfg['heading'], $cx, (int)($H * 0.15), (int)($H * 0.285), $o['cw'], $o, $W);
         } else {
-            // Ribbon: "WELCOME TO" small then the big name, both on the band.
+            // Ribbon: optional heading small then the big name, both on the band.
             $onbg = se_hex($pal['onbg']);
-            se_text_center_tracked($im, 'WELCOME TO', $fontReg, $W * 0.026, $cx, (int)($H * 0.165), se_col($im, $onbg), $W * 0.006);
-            $name = trim((string)($tenant['restaurant_name'] ?? 'Restaurant')) ?: 'Restaurant';
-            se_draw_name_block($im, $name, $fontBold, $cx, (int)($H * 0.235), (int)($W * 0.82), (int)($H * 0.14), $W * 0.072, $W * 0.032, se_col($im, $onbg));
+            if (trim((string)$cfg['heading']) !== '' && $fontReg !== '') {
+                se_text_center_tracked($im, (string)$cfg['heading'], $fontReg, $W * 0.026, $cx, (int)($H * 0.165), se_col($im, $onbg), $W * 0.006);
+            }
+            se_draw_name_block($im, $printName, $fontBold, $cx, (int)($H * 0.235), (int)($W * 0.82), (int)($H * 0.14), $W * 0.072, $W * 0.032, se_col($im, $onbg));
+        }
+
+        // 3b) Optional tagline line under the name.
+        if (trim((string)$cfg['tagline']) !== '' && $fontReg !== '') {
+            $tagY = (int)($H * ($style === 'ribbon' ? 0.44 : 0.335));
+            $tagSize = se_fit_size((string)$cfg['tagline'], $fontReg, (int)($o['cw'] * 0.92), $W * 0.034, $W * 0.020);
+            se_text_center($im, (string)$cfg['tagline'], $fontReg, $tagSize, $cx, $tagY, $taglineColor);
         }
 
         // 4) QR block.
@@ -783,23 +863,40 @@ if (!function_exists('se_render')) {
             imagettftext($im, $W * 0.032, 90, (int)($W * 0.15), (int)($H * 0.80), se_col($im, $onbg), $fontBold, 'SCAN  FOR  MENU');
         }
 
-        // 5) Call to action + Gujarati.
+        // 5) Call to action — language-aware. English is the default and
+        //    English-only fully removes the Gujarati line.
+        $lang = in_array($cfg['lang'], ['en', 'gu', 'both'], true) ? $cfg['lang'] : 'en';
+        if ($fontGu === '' && $lang !== 'en') { $lang = 'en'; } // no Gujarati font -> fall back
+        $ctaText = trim((string)$cfg['cta']) !== '' ? (string)$cfg['cta'] : 'SCAN FOR MENU';
         $ctaY = (int)($H * 0.775);
-        if ($fontBold !== '') { se_text_center($im, 'SCAN FOR MENU', $fontBold, $W * 0.048, $cx, $ctaY, se_col($im, $o['cta_color'])); }
-        if ($fontGu !== '')   { se_text_center($im, 'મેનુ માટે સ્કેન કરો', $fontGu, $W * 0.036, $cx, (int)($ctaY + $H * 0.040), se_col($im, $o['gu_color'])); }
-
-        // 6) Gold stars.
-        se_star_row($im, $cx, (int)($H * 0.858), (int)($W * 0.020), $o['star_gold']);
-
-        // 7) Contact.
-        $contact = trim((string)($tenant['whatsapp_no'] ?? ($tenant['mobile'] ?? '')));
-        if ($contact !== '' && $fontReg !== '') {
-            se_text_center($im, 'Call / WhatsApp: ' . $contact, $fontReg, $W * 0.030, $cx, (int)($H * 0.905), se_col($im, $o['contact_color']));
+        $guText = 'મેનુ માટે સ્કેન કરો';
+        if ($lang === 'gu') {
+            if ($fontGu !== '') { se_text_center($im, $guText, $fontGu, $W * 0.044, $cx, $ctaY, se_col($im, $o['cta_color'])); }
+        } elseif ($lang === 'both') {
+            if ($fontBold !== '') { se_text_center($im, $ctaText, $fontBold, $W * 0.048, $cx, $ctaY, se_col($im, $o['cta_color'])); }
+            if ($fontGu !== '')   { se_text_center($im, $guText, $fontGu, $W * 0.036, $cx, (int)($ctaY + $H * 0.040), se_col($im, $o['gu_color'])); }
+        } else { // en (default)
+            if ($fontBold !== '') { se_text_center($im, $ctaText, $fontBold, $W * 0.048, $cx, $ctaY, se_col($im, $o['cta_color'])); }
         }
 
-        // 8) Footer branding.
+        // 6) Gold stars (optional).
+        if (!empty($cfg['show_stars'])) {
+            se_star_row($im, $cx, (int)($H * 0.855), (int)($W * 0.020), $o['star_gold']);
+        }
+
+        // 7) Contact (optional, editable text).
+        $contact = trim((string)$cfg['contact']);
+        if (!empty($cfg['show_contact']) && $contact !== '' && $fontReg !== '') {
+            se_text_center($im, $contact, $fontReg, $W * 0.030, $cx, (int)($H * 0.897), se_col($im, $o['contact_color']));
+        }
+
+        // 8) Optional extra footer line (tenant's own), then AK branding (kept).
+        $footY = (int)($H * 0.958);
+        if (trim((string)$cfg['footer_extra']) !== '' && $fontReg !== '') {
+            se_text_center($im, (string)$cfg['footer_extra'], $fontReg, $W * 0.026, $cx, (int)($H * 0.928), se_col($im, $o['footer_color']));
+        }
         if ($fontReg !== '') {
-            se_text_center($im, defined('POWERED_BY') ? POWERED_BY : 'Powered by AK Computer, Dwarka', $fontReg, $W * 0.026, $cx, (int)($H * 0.955), se_col($im, $o['footer_color']));
+            se_text_center($im, defined('POWERED_BY') ? POWERED_BY : 'Powered by AK Computer, Dwarka', $fontReg, $W * 0.026, $cx, $footY, se_col($im, $o['footer_color']));
         }
 
         return $im;

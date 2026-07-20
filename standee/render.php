@@ -66,14 +66,22 @@ if ($size === 'a4') { $W = 1240; $H = 1754; }  // A4 portrait @150dpi
 else                { $W = 1080; $H = 1920; }  // table-tent portrait
 
 // -----------------------------------------------------------------------------
+// Resolve editable text/language config.
+// Priority: GET params (live preview) > saved per-tenant config > defaults.
+// -----------------------------------------------------------------------------
+
+$tid = (int)$tenant['id'];
+$cfg = se_resolve_config($tenant, $tid, $_GET);
+
+// -----------------------------------------------------------------------------
 // Thumbnail fast path (cached to assets/cache to keep the gallery snappy)
 // -----------------------------------------------------------------------------
 
 if ($thumb) {
     $tw = 300;
     $th = (int)round($tw * $H / $W);
-    // Cache key includes anything that changes the pixels (name/logo/colours).
-    $sig = md5($slug . '|' . $designId . '|' . $size . '|' . ($tenant['restaurant_name'] ?? '')
+    // Cache key includes anything that changes the pixels (config/name/logo/colours).
+    $sig = md5($slug . '|' . $designId . '|' . $size . '|' . json_encode($cfg)
              . '|' . ($tenant['logo'] ?? '') . '|' . (is_file($qrAbs) ? filemtime($qrAbs) : 0)
              . '|' . (($tenant['logo'] ?? '') && is_file(ROOT_PATH . '/' . $tenant['logo']) ? filemtime(ROOT_PATH . '/' . $tenant['logo']) : 0));
     $cacheDir = ROOT_PATH . '/assets/cache';
@@ -82,7 +90,7 @@ if ($thumb) {
 
     if (!is_file($cacheFile)) {
         // Render small directly (all geometry is fractional -> scales cleanly).
-        $img = se_render($tenant, $qrAbs, $design, $tw, $th);
+        $img = se_render($tenant, $qrAbs, $design, $tw, $th, $cfg);
         imagepng($img, $cacheFile, 6);
         imagedestroy($img);
     }
@@ -94,7 +102,7 @@ if ($thumb) {
 // Full render
 // -----------------------------------------------------------------------------
 
-$img = se_render($tenant, $qrAbs, $design, $W, $H);
+$img = se_render($tenant, $qrAbs, $design, $W, $H, $cfg);
 
 if ($format === 'pdf') {
     // Wrap the rendered PNG into a single full-page PDF via bundled FPDF.
