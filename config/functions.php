@@ -597,16 +597,87 @@ function verifyOtp(string $mobile, string $otp, string $purpose = 'login'): bool
 // =============================================================================
 
 /**
+ * Ordered list of Gemini models to try. The configured model is tried first,
+ * then known-good fallbacks — so a deprecated/renamed model never fully breaks
+ * extraction. Google retires model names over time; this keeps us resilient.
+ */
+function geminiModelCandidates(): array {
+    $configured = trim((string)getSetting('gemini_model', ''));
+    $fallbacks = [
+        'gemini-2.5-flash',
+        'gemini-flash-latest',
+        'gemini-2.0-flash-001',
+        'gemini-2.5-flash-lite',
+        'gemini-1.5-flash',
+    ];
+    $list = array_values(array_unique(array_filter(array_merge([$configured], $fallbacks))));
+    return $list ?: ['gemini-2.5-flash'];
+}
+
+/**
+ * Low-level Gemini generateContent call for a single model, with 429/503
+ * backoff. Returns a normalised result array.
+ * @return array{ok:bool, http:int, text:string, apiMsg:string, model:string}
+ */
+function geminiGenerate(array $parts, string $model, array $genConfig = []): array {
+    $apiKey = trim((string)getSetting('gemini_api_key', ''));
+    if (!$apiKey) return ['ok' => false, 'http' => 0, 'text' => '', 'apiMsg' => 'No API key configured.', 'model' => $model];
+
+    $body = json_encode([
+        'contents' => [['parts' => $parts]],
+        'generationConfig' => $genConfig ?: ['temperature' => 0.2],
+    ], JSON_UNESCAPED_UNICODE);
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey";
+
+    $http = 0; $resp = false; $apiMsg = ''; $curlErr = '';
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT => 120,
+        ]);
+        $resp = curl_exec($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($http === 200) break;
+
+        $ej = json_decode((string)$resp, true);
+        $apiMsg = $ej['error']['message'] ?? '';
+        $retryDelay = 0;
+        foreach ($ej['error']['details'] ?? [] as $d) {
+            if (!empty($d['retryDelay']) && preg_match('/(\d+)/', $d['retryDelay'], $m)) { $retryDelay = (int)$m[1]; }
+        }
+        if (in_array($http, [429, 503], true) && $attempt < 3) { sleep($retryDelay > 0 ? min($retryDelay, 30) : 2 * $attempt); continue; }
+        break;
+    }
+
+    if ($http !== 200) {
+        return ['ok' => false, 'http' => $http, 'text' => '', 'apiMsg' => ($apiMsg ?: $curlErr ?: "HTTP $http"), 'model' => $model];
+    }
+    $json = json_decode((string)$resp, true);
+    $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    return ['ok' => true, 'http' => 200, 'text' => $text, 'apiMsg' => '', 'model' => $model];
+}
+
+/** True when an error message/status means "this model does not exist / is retired". */
+function geminiIsModelGone(int $http, string $msg): bool {
+    return $http === 404 || stripos($msg, 'not found') !== false
+        || stripos($msg, 'no longer available') !== false || stripos($msg, 'not supported') !== false
+        || stripos($msg, 'is not available') !== false;
+}
+
+/**
  * Call Gemini Vision to extract structured menu JSON from image(s).
- * Retries automatically on 429 (rate limit / quota) and 503 with backoff.
+ * Tries each candidate model until one works; retries 429/503 with backoff.
  * @param array $imagePaths absolute file paths (jpg/png/pdf)
  * @return array{ok:bool, data:array|null, error:string}
  */
 function geminiExtractMenu(array $imagePaths): array {
-    $apiKey = trim((string)getSetting('gemini_api_key', ''));
-    $model  = trim((string)getSetting('gemini_model', 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
-    if (!$apiKey) return ['ok' => false, 'data' => null, 'error' => 'Gemini API key not configured. Add it in Super Admin → Settings → AI.'];
-
+    if (!trim((string)getSetting('gemini_api_key', ''))) {
+        return ['ok' => false, 'data' => null, 'error' => 'Gemini API key not configured. Add it in Super Admin → Settings → AI.'];
+    }
     $parts = [[
         'text' => "You are a menu OCR engine. Extract ALL menu items from the image(s). "
         . "Return STRICT JSON ONLY, no markdown, matching this schema: "
@@ -620,69 +691,85 @@ function geminiExtractMenu(array $imagePaths): array {
     }
     if (count($parts) < 2) return ['ok' => false, 'data' => null, 'error' => 'No readable image was uploaded.'];
 
-    $body = json_encode([
-        'contents' => [['parts' => $parts]],
-        'generationConfig' => ['temperature' => 0.1, 'response_mime_type' => 'application/json'],
-    ]);
-    $url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey";
-
-    // Retry up to 3 times on transient quota/rate-limit responses.
-    $maxAttempts = 3;
-    $resp = false; $httpCode = 0; $curlErr = ''; $apiMsg = '';
-    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT        => 120,
-        ]);
-        $resp = curl_exec($ch);
-        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
-        curl_close($ch);
-
-        if ($httpCode === 200) break;
-
-        // Pull the human-readable reason + suggested retry delay from the error body.
-        $ej = json_decode((string)$resp, true);
-        $apiMsg = $ej['error']['message'] ?? '';
-        $retryDelay = 0;
-        foreach ($ej['error']['details'] ?? [] as $d) {
-            if (!empty($d['retryDelay']) && preg_match('/(\d+)/', $d['retryDelay'], $m)) { $retryDelay = (int)$m[1]; }
-        }
-        // Only 429 (quota/rate) and 503 (overloaded) are worth retrying.
-        if (in_array($httpCode, [429, 503], true) && $attempt < $maxAttempts) {
-            $wait = $retryDelay > 0 ? min($retryDelay, 30) : (2 * $attempt);
-            sleep($wait);
-            continue;
-        }
-        break;
+    $genConfig = ['temperature' => 0.1, 'response_mime_type' => 'application/json'];
+    $lastErr = ''; $lastHttp = 0; $usedModel = '';
+    foreach (geminiModelCandidates() as $model) {
+        $r = geminiGenerate($parts, $model, $genConfig);
+        if ($r['ok']) { $usedModel = $model; $lastErr = ''; $rawText = $r['text']; break; }
+        $lastErr = $r['apiMsg']; $lastHttp = $r['http'];
+        if (geminiIsModelGone($r['http'], $r['apiMsg'])) { continue; }   // try next model
+        if (in_array($r['http'], [400, 403], true)) { break; }           // key problem — stop
+        // 429/other: try next candidate too (different model may have quota)
     }
 
-    if ($httpCode !== 200) {
-        if ($httpCode === 429) {
-            $hint = $apiMsg ?: 'Free-tier quota or per-minute rate limit reached.';
+    if (empty($usedModel)) {
+        if ($lastHttp === 429) {
             return ['ok' => false, 'data' => null,
-                'error' => 'Gemini quota reached (HTTP 429). ' . $hint
-                . ' Wait a minute and press Retry, or use a different API key / enable billing on your Google AI Studio key.'];
+                'error' => 'Gemini quota reached (HTTP 429). ' . $lastErr
+                . ' Wait a minute and press Retry, or use a different API key / enable billing.'];
         }
-        if (in_array($httpCode, [400, 403], true)) {
-            return ['ok' => false, 'data' => null,
-                'error' => 'Gemini rejected the request (HTTP ' . $httpCode . '). ' . ($apiMsg ?: 'Check the API key and model name in Settings.')];
+        if (in_array($lastHttp, [400, 403], true)) {
+            return ['ok' => false, 'data' => null, 'error' => 'Gemini rejected the request. ' . ($lastErr ?: 'Check the API key in Settings.')];
         }
-        return ['ok' => false, 'data' => null, 'error' => 'Gemini API error: ' . ($apiMsg ?: $curlErr ?: "HTTP $httpCode")];
+        return ['ok' => false, 'data' => null,
+            'error' => 'No available Gemini model worked. ' . ($lastErr ?: '') . ' Use the "Test Gemini" tool in Settings to pick a valid model.'];
     }
 
-    $json = json_decode((string)$resp, true);
-    $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
-    $text = trim(preg_replace('/^```json|```$/m', '', $text));
+    // Remember the model that actually worked so future calls use it first.
+    if ($usedModel !== trim((string)getSetting('gemini_model', ''))) { setSetting('gemini_model', $usedModel); }
+
+    $text = trim(preg_replace('/^```json|```$/m', '', $rawText));
     $data = json_decode($text, true);
     if (!$data || empty($data['categories'])) {
         return ['ok' => false, 'data' => null, 'error' => 'Could not read a menu from the image. Try a clearer photo or enter items manually.'];
     }
     return ['ok' => true, 'data' => $data, 'error' => ''];
+}
+
+/**
+ * Send a plain text prompt to Gemini (used by the Settings "Test" tool).
+ * @return array{ok:bool, text:string, model:string, error:string}
+ */
+function geminiTestPrompt(string $prompt): array {
+    if (!trim((string)getSetting('gemini_api_key', ''))) {
+        return ['ok' => false, 'text' => '', 'model' => '', 'error' => 'No API key configured.'];
+    }
+    $parts = [['text' => $prompt !== '' ? $prompt : 'Reply with a short friendly hello in English and Gujarati.']];
+    $lastErr = '';
+    foreach (geminiModelCandidates() as $model) {
+        $r = geminiGenerate($parts, $model);
+        if ($r['ok']) { return ['ok' => true, 'text' => $r['text'], 'model' => $model, 'error' => '']; }
+        $lastErr = $r['apiMsg'];
+        if (geminiIsModelGone($r['http'], $r['apiMsg'])) continue;
+        if (in_array($r['http'], [400, 403], true)) break;
+    }
+    return ['ok' => false, 'text' => '', 'model' => '', 'error' => $lastErr ?: 'All models failed.'];
+}
+
+/**
+ * List models the current API key can use for generateContent.
+ * @return array{ok:bool, models:array<string>, error:string}
+ */
+function geminiListModels(): array {
+    $apiKey = trim((string)getSetting('gemini_api_key', ''));
+    if (!$apiKey) return ['ok' => false, 'models' => [], 'error' => 'No API key configured.'];
+    $ch = curl_init("https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey&pageSize=100");
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30]);
+    $resp = curl_exec($ch);
+    $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($http !== 200) {
+        $ej = json_decode((string)$resp, true);
+        return ['ok' => false, 'models' => [], 'error' => $ej['error']['message'] ?? "HTTP $http"];
+    }
+    $json = json_decode((string)$resp, true);
+    $models = [];
+    foreach ($json['models'] ?? [] as $m) {
+        if (in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true)) {
+            $models[] = str_replace('models/', '', $m['name']);
+        }
+    }
+    return ['ok' => true, 'models' => $models, 'error' => ''];
 }
 
 // =============================================================================

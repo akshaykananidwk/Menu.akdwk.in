@@ -201,7 +201,9 @@ require __DIR__ . '/_header.php';
           </div>
           <div class="col-md-6">
             <label class="form-label">Gemini Model</label>
-            <input name="gemini_model" class="form-control" value="<?= e($v('gemini_model', 'gemini-2.0-flash')) ?>">
+            <input name="gemini_model" id="geminiModel" class="form-control" list="geminiModelList" value="<?= e($v('gemini_model', 'gemini-2.5-flash')) ?>">
+            <datalist id="geminiModelList"></datalist>
+            <div class="form-text">Google retires model names over time. If a model stops working the system auto-falls back to a working one. Use “Load models” to see what your key supports.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Monthly Limit (calls)</label>
@@ -212,6 +214,19 @@ require __DIR__ . '/_header.php';
             <input type="number" step="0.01" name="ai_cost_per_call" class="form-control" value="<?= e($v('ai_cost_per_call', '0.50')) ?>">
           </div>
         </div>
+
+        <!-- ===== Live Gemini test tool ===== -->
+        <hr class="my-4">
+        <h6 class="fw-semibold"><i class="bi bi-magic"></i> Test Gemini API</h6>
+        <p class="text-muted small mb-2">Save your key first, then send a test message below to check the API really works and see the reply. Buttons here do not submit the settings form.</p>
+        <div class="d-flex gap-2 mb-2 flex-wrap">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLoadModels"><i class="bi bi-list-ul"></i> Load available models</button>
+        </div>
+        <div class="mb-2">
+          <textarea id="geminiTestPrompt" class="form-control" rows="2" placeholder="Type a test message, e.g. Say hello in Gujarati">Say hello in English and Gujarati.</textarea>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btnGeminiTest"><i class="bi bi-send"></i> Send Test</button>
+        <div id="geminiTestResult" class="mt-3"></div>
       </div>
 
       <!-- Payments -->
@@ -276,4 +291,48 @@ require __DIR__ . '/_header.php';
     <button class="btn btn-primary"><i class="bi bi-save"></i> Save Settings</button>
   </div>
 </form>
+
+<script>
+// ---- Gemini live test tool (Settings → AI) ----
+(function () {
+  const base = '<?= e(BASE_URL) ?>';
+  const resultBox = document.getElementById('geminiTestResult');
+  const setResult = (html) => { if (resultBox) resultBox.innerHTML = html; };
+
+  // Send a test prompt and show the reply (or the real error).
+  document.getElementById('btnGeminiTest')?.addEventListener('click', function () {
+    const btn = this; const prompt = document.getElementById('geminiTestPrompt').value;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Testing...';
+    setResult('<div class="text-muted small">Contacting Gemini…</div>');
+    AK.post(base + '/api/gemini_test.php?action=test', { prompt })
+      .then(res => {
+        if (res.status === 'success') {
+          setResult('<div class="alert alert-success"><div class="small text-muted mb-1">✅ Working · model: <b>' +
+            (res.data.model || '') + '</b></div><div style="white-space:pre-wrap">' +
+            (res.data.reply ? res.data.reply.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) : '') + '</div></div>');
+        } else {
+          setResult('<div class="alert alert-danger"><b>Failed:</b> ' +
+            (res.message || 'Unknown error').replace(/[<>]/g, '') + '</div>');
+        }
+      })
+      .catch(() => setResult('<div class="alert alert-danger">Request failed.</div>'))
+      .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Send Test'; });
+  });
+
+  // Load the models the key can actually use into the datalist.
+  document.getElementById('btnLoadModels')?.addEventListener('click', function () {
+    const btn = this; btn.disabled = true;
+    AK.post(base + '/api/gemini_test.php?action=models', {})
+      .then(res => {
+        if (res.status === 'success' && res.data.models) {
+          const dl = document.getElementById('geminiModelList');
+          dl.innerHTML = res.data.models.map(m => '<option value="' + m + '">').join('');
+          AK.toast('success', res.data.models.length + ' models loaded — click the Model box to choose.');
+        } else { AK.toast('error', res.message || 'Could not load models'); }
+      })
+      .catch(() => AK.toast('error', 'Request failed'))
+      .finally(() => { btn.disabled = false; });
+  });
+})();
+</script>
 <?php require __DIR__ . '/_footer.php'; ?>

@@ -609,7 +609,7 @@ INSERT INTO `{PREFIX}settings` (`setting_key`, `setting_value`) VALUES
 ('smtp_pass', ''),
 ('smtp_from_name', 'AK Menu System'),
 ('gemini_api_key', ''),
-('gemini_model', 'gemini-2.0-flash'),
+('gemini_model', 'gemini-2.5-flash'),
 ('gemini_monthly_limit', '1000'),
 ('razorpay_key_id', ''),
 ('razorpay_secret', ''),
