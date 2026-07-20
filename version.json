@@ -1,12 +1,14 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "released_on": "2026-07-20",
   "min_php": "8.0",
   "changelog": [
-    "Initial release of AK Menu System",
-    "Multi-tenant SaaS restaurant menu & ordering",
-    "AI menu extraction via Google Gemini",
-    "WhatsApp automation, QR/standee generator, KOT screen",
-    "Web installer and GitHub auto-update"
+    "Installer: fixed SQL import that skipped comment-prefixed tables; JSON-safe errors; re-runnable schema",
+    "Fixed QR/menu images not loading on cPanel (removed php_flag from uploads/.htaccess)",
+    "Gemini: auto-fallback across models (handles retired gemini-2.0-flash), 429 retry/backoff, clearer errors",
+    "Settings: live 'Test Gemini API' tool with reply box and model list",
+    "New one-click vegetarian Demo Menu (53 items, English + Gujarati, bundled photos)",
+    "Templates now support both local and external item image URLs",
+    "Corrected default GitHub owner/repo for auto-updates"
   ]
 }
