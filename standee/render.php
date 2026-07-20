@@ -25,35 +25,57 @@ require_once __DIR__ . '/engine.php';   // rendering engine (also pulls designs.
 // Input validation
 // -----------------------------------------------------------------------------
 
-$slug     = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
-$designId = isset($_GET['design']) ? trim((string)$_GET['design']) : 'l1-t1';
-$format   = strtolower(trim((string)($_GET['format'] ?? 'png')));
-$size     = strtolower(trim((string)($_GET['size'] ?? 'tent')));
-$thumb    = !empty($_GET['thumb']);
-$download = !empty($_GET['download']);
+$slug       = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
+$tableToken = isset($_GET['table']) ? trim((string)$_GET['table']) : '';
+$designId   = isset($_GET['design']) ? trim((string)$_GET['design']) : '';
+$format     = strtolower(trim((string)($_GET['format'] ?? 'png')));
+$size       = strtolower(trim((string)($_GET['size'] ?? 'tent')));
+$thumb      = !empty($_GET['thumb']);
+$download   = !empty($_GET['download']);
 
-if (!preg_match('/^[A-Za-z0-9\-]{1,120}$/', $slug)) { http_response_code(400); exit('Invalid slug.'); }
 if (!in_array($format, ['png', 'pdf'], true)) { $format = 'png'; }
 if (!in_array($size, ['tent', 'a4'], true))   { $size = 'tent'; }
 
-$design = standee_resolve($designId);
-if (!$design) { http_response_code(400); exit('Invalid design id.'); }
-
 // -----------------------------------------------------------------------------
-// Tenant resolution (slug only, must be active)
+// Tenant + QR resolution — by table QR token (per-table standee) or by slug.
 // -----------------------------------------------------------------------------
 
-$tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE slug = :s', [':s' => $slug]);
+$tableRow = null;
+if ($tableToken !== '') {
+    if (!preg_match('/^[A-Za-z0-9]{1,64}$/', $tableToken)) { http_response_code(400); exit('Invalid table.'); }
+    $tableRow = db_one('SELECT * FROM ' . tbl('tables') . ' WHERE qr_token = :t', [':t' => $tableToken]);
+    if (!$tableRow) { http_response_code(404); exit('Table not found.'); }
+    $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tableRow['tenant_id']]);
+} else {
+    if (!preg_match('/^[A-Za-z0-9\-]{1,120}$/', $slug)) { http_response_code(400); exit('Invalid slug.'); }
+    $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE slug = :s', [':s' => $slug]);
+}
 if (!$tenant) { http_response_code(404); exit('Restaurant not found.'); }
 if (($tenant['status'] ?? '') !== 'active') { http_response_code(403); exit('This restaurant is not active.'); }
+$slug = $tenant['slug'];
+
+// Default design = the tenant's saved choice, else a nice default.
+if ($designId === '') {
+    $designId = (string)getSetting('standee_design_' . (int)$tenant['id'], '') ?: 'corners-t1';
+}
+$design = standee_resolve($designId);
+if (!$design) { $design = standee_resolve('corners-t1'); $designId = 'corners-t1'; }
+if (!$design) { http_response_code(400); exit('No standee design available.'); }
 
 // -----------------------------------------------------------------------------
-// Ensure the tenant's QR PNG exists (named by slug, matching client/qr.php)
+// Ensure the QR PNG exists (table URL for a table standee, else the menu URL)
 // -----------------------------------------------------------------------------
 
-$qrAbs = UPLOAD_PATH . '/qr/' . $slug . '.png';
+if ($tableRow) {
+    $qrName = 'table-' . $tableToken;
+    $qrData = BASE_URL . '/t/' . $tableToken;
+} else {
+    $qrName = $slug;
+    $qrData = publicMenuUrl($slug);
+}
+$qrAbs = UPLOAD_PATH . '/qr/' . $qrName . '.png';
 if (!is_file($qrAbs)) {
-    $rel = generateQr(publicMenuUrl($slug), $slug);
+    $rel = generateQr($qrData, $qrName);
     $qrAbs = $rel ? ROOT_PATH . '/' . $rel : '';
 }
 if (!$qrAbs || !is_file($qrAbs)) { http_response_code(500); exit('Could not generate QR code.'); }
