@@ -66,13 +66,24 @@ try {
                               FROM ' . tbl('orders') . ' WHERE ' . $dateWhere . '
                               GROUP BY DATE(created_at) ORDER BY d ASC', $dateParams);
 
+            // Money actually collected, broken down by mode (paid orders only).
             $payments = db_all('SELECT payment_mode, COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue
-                                FROM ' . tbl('orders') . ' WHERE ' . $dateWhere . '
-                                GROUP BY payment_mode', $dateParams);
+                                FROM ' . tbl('orders') . '
+                                WHERE ' . $dateWhere . " AND payment_status = 'paid'
+                                GROUP BY payment_mode ORDER BY revenue DESC", $dateParams);
+
+            // Paid vs unpaid (dues) split for the range.
+            $paidVsDue = db_one('SELECT
+                                    COALESCE(SUM(CASE WHEN payment_status = "paid" THEN total ELSE 0 END),0) AS paid_total,
+                                    SUM(CASE WHEN payment_status = "paid" THEN 1 ELSE 0 END) AS paid_orders,
+                                    COALESCE(SUM(CASE WHEN payment_status <> "paid" THEN total ELSE 0 END),0) AS due_total,
+                                    SUM(CASE WHEN payment_status <> "paid" THEN 1 ELSE 0 END) AS due_orders
+                                 FROM ' . tbl('orders') . ' WHERE ' . $dateWhere, $dateParams);
 
             jsonSuccess('', [
                 'from' => $from, 'to' => $to,
-                'summary' => $summary, 'series' => $series, 'payments' => $payments,
+                'summary' => $summary, 'series' => $series,
+                'payments' => $payments, 'paid_vs_due' => $paidVsDue,
             ]);
             break;
         }

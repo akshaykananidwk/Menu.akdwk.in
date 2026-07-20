@@ -295,7 +295,7 @@ CREATE TABLE `{PREFIX}orders` (
   `service_charge` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `discount` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `total` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  `payment_mode` ENUM('cash','online','counter') NOT NULL DEFAULT 'counter',
+  `payment_mode` VARCHAR(20) NOT NULL DEFAULT 'cash',
   `payment_status` ENUM('pending','paid','failed') NOT NULL DEFAULT 'pending',
   `payment_ref` VARCHAR(120) DEFAULT NULL,
   `status` ENUM('new','accepted','preparing','ready','served','completed','cancelled') NOT NULL DEFAULT 'new',

@@ -1,8 +1,13 @@
 {
-    "version": "1.0.3",
+    "version": "1.0.4",
     "released_on": "2026-07-20",
     "min_php": "8.0",
     "changelog": [
+        "POS-style order flow: owner Orders board simplified to New/Active, Completed and Cancelled",
+        "Payment collection: 'Complete & Collect Payment' with Cash / UPI / Card / Bank / Online / Due, cash change calculation",
+        "Standalone 'Mark Paid' on any unpaid order; payment mode + paid/unpaid shown in order detail and printed bill",
+        "Reports: payment breakdown by mode (cash vs bank vs UPI) plus paid vs unpaid dues for the date range",
+        "Widened orders.payment_mode to VARCHAR(20) (migration 1.0.4) with a safe auto-migrator on admin load",
         "Fixed one-click update download (GitHub zipball HTTP 415): download by commit SHA with the correct Accept header",
         "Updates: switched to simple branch/commit-based updates — set repo + branch + token once, then Check & Update straight from GitHub (no Releases needed)",
         "Update Settings simplified to 3 fields (owner/repo, branch, token); branch is now free text",

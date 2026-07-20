@@ -6,6 +6,62 @@
 require_once dirname(__DIR__) . '/config/config.php';
 requireAdmin();
 
+/**
+ * SAFE auto-migrator (best-effort). git-pull deployments never run the update
+ * pipeline, so any updates/*.sql not yet recorded in the `migrations` table is
+ * applied here on dashboard load. Uses the same table + file_name key as
+ * api/update.php → ak_run_migrations to avoid double-runs. Wrapped so it can
+ * NEVER break the page; migrations are additive/idempotent by contract.
+ */
+function ak_admin_auto_migrate(): void {
+    global $pdo;
+    try {
+        $dir = ROOT_PATH . '/updates';
+        if (!is_dir($dir)) return;
+        $prefix = defined('DB_PREFIX') ? DB_PREFIX : '';
+
+        $files = [];
+        foreach (glob($dir . '/*.sql') ?: [] as $f) {
+            $base = basename($f);
+            if (!preg_match('/^(\d+\.\d+\.\d+)\.sql$/', $base, $m)) continue;
+            $files[] = ['file' => $f, 'base' => $base, 'ver' => $m[1]];
+        }
+        // Run in ascending version order for deterministic application.
+        usort($files, fn($a, $b) => version_compare($a['ver'], $b['ver']));
+
+        foreach ($files as $mig) {
+            // Skip anything already recorded (unique file_name gate).
+            $done = (int)db_val('SELECT COUNT(*) FROM ' . tbl('migrations') . ' WHERE file_name = :f', [':f' => $mig['base']]);
+            if ($done > 0) continue;
+
+            $raw = @file_get_contents($mig['file']);
+            if ($raw === false) continue;
+            $raw = str_replace('{PREFIX}', $prefix, $raw);
+
+            // Split into statements, ignoring blank/comment lines.
+            $buf = ''; $stmts = [];
+            foreach (preg_split('/\r\n|\n|\r/', $raw) as $line) {
+                $t = trim($line);
+                if ($t === '' || strncmp($t, '--', 2) === 0) continue;
+                $buf .= $line . "\n";
+                if (substr(rtrim($line), -1) === ';') { $stmts[] = rtrim(rtrim($buf), ";\n "); $buf = ''; }
+            }
+            if (trim($buf) !== '') { $stmts[] = rtrim(trim($buf), ';'); }
+
+            try {
+                foreach ($stmts as $stmt) { if (trim($stmt) !== '') { $pdo->exec($stmt); } }
+                db_insert('migrations', ['version' => $mig['ver'], 'file_name' => $mig['base']]);
+            } catch (Throwable $e) {
+                // Best-effort: log and move on without recording (so it retries later).
+                error_log('auto-migrate ' . $mig['base'] . ' failed: ' . $e->getMessage());
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ak_admin_auto_migrate error: ' . $e->getMessage());
+    }
+}
+ak_admin_auto_migrate();
+
 $today = date('Y-m-d');
 
 // ---- KPI figures ----

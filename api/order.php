@@ -295,6 +295,66 @@ try {
             break;
         }
 
+        // =================================================================
+        // COLLECT (client OR staff, csrf) — POS payment collection.
+        // {order_id, payment_mode, payment_status?, amount_received?}
+        // Marks the order completed + records how payment was collected.
+        // =================================================================
+        case 'collect': {
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') { csrfCheck(); }
+            $tid = orderTenantId();
+            if (!$tid) { jsonError('Unauthorized.', 401); }
+
+            $orderId = (int)($_POST['order_id'] ?? 0);
+            $mode    = strtolower(trim((string)($_POST['payment_mode'] ?? '')));
+            $allowedModes = ['cash', 'upi', 'card', 'bank', 'online', 'due'];
+            if (!in_array($mode, $allowedModes, true)) { jsonError('Invalid payment mode.'); }
+
+            // Tenant isolation: the order must belong to the current tenant.
+            $order = db_one('SELECT * FROM ' . tbl('orders') . ' WHERE id = :i AND tenant_id = :t',
+                [':i' => $orderId, ':t' => $tid]);
+            if (!$order) { jsonError('Order not found.', 404); }
+
+            // "Due" means collected later -> keep it pending; everything else is paid.
+            $payStatus = ($mode === 'due') ? 'pending'
+                       : (in_array($_POST['payment_status'] ?? '', ['pending', 'paid'], true) ? $_POST['payment_status'] : 'paid');
+            // Store 'due' as an unpaid cash-style record so the mode column stays meaningful.
+            $storeMode = ($mode === 'due') ? 'cash' : $mode;
+
+            // Advance a still-open order to completed; leave already-final states as-is.
+            $newStatus = in_array($order['status'], ['completed', 'cancelled'], true) ? $order['status'] : 'completed';
+
+            db_update('orders', [
+                'payment_mode'   => $storeMode,
+                'payment_status' => $payStatus,
+                'status'         => $newStatus,
+                'updated_at'     => date('Y-m-d H:i:s'),
+            ], ['id' => $orderId]);
+
+            // Free the table once the order is completed.
+            if ($newStatus === 'completed' && $order['table_id']) {
+                db_update('tables', ['status' => 'free'], ['id' => $order['table_id']]);
+            }
+
+            // Fire order_completed only on the first transition into completed.
+            if ($newStatus === 'completed' && $order['status'] !== 'completed' && !empty($order['customer_mobile'])) {
+                try {
+                    sendWaTemplate('order_completed', $order['customer_mobile'], [
+                        'order_no' => $order['order_no'],
+                        'total'    => money($order['total']),
+                    ], null, $tid);
+                } catch (Throwable $e) {
+                    error_log('collect WA failed: ' . $e->getMessage());
+                }
+            }
+
+            jsonSuccess('Payment recorded.', [
+                'order_id' => $orderId, 'payment_mode' => $storeMode,
+                'payment_status' => $payStatus, 'status' => $newStatus,
+            ]);
+            break;
+        }
+
         default:
             jsonError('Unknown action.', 404);
     }

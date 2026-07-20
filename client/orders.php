@@ -33,26 +33,33 @@ $currency = $tenant['currency'] ?: '₹';
   </div>
 </div>
 
-<!-- Kanban board -->
+<!-- Simplified POS board: Active + Completed, with a collapsible Cancelled column. -->
 <div class="orders-board d-flex gap-3 pb-2" id="board" style="overflow-x:auto">
-  <?php
-  $columns = [
-    'new'       => ['New', 'secondary'],
-    'accepted'  => ['Accepted', 'info'],
-    'preparing' => ['Preparing', 'warning'],
-    'ready'     => ['Ready', 'primary'],
-    'served'    => ['Served', 'success'],
-    'done'      => ['Completed / Cancelled', 'dark'],
-  ];
-  foreach ($columns as $key => $col): ?>
-    <div class="kanban-col flex-shrink-0" style="width:300px" data-col="<?= e($key) ?>">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0"><span class="badge bg-<?= e($col[1]) ?>"><?= e($col[0]) ?></span></h6>
-        <span class="badge bg-light text-dark" id="count-<?= e($key) ?>">0</span>
-      </div>
-      <div class="kanban-cards d-flex flex-column gap-2" id="col-<?= e($key) ?>"></div>
+  <div class="kanban-col flex-shrink-0" style="width:340px" data-col="active">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0"><span class="badge bg-primary">New / Active</span></h6>
+      <span class="badge bg-light text-dark" id="count-active">0</span>
     </div>
-  <?php endforeach; ?>
+    <div class="kanban-cards d-flex flex-column gap-2" id="col-active"></div>
+  </div>
+  <div class="kanban-col flex-shrink-0" style="width:340px" data-col="completed">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0"><span class="badge bg-success">Completed</span></h6>
+      <span class="badge bg-light text-dark" id="count-completed">0</span>
+    </div>
+    <div class="kanban-cards d-flex flex-column gap-2" id="col-completed"></div>
+  </div>
+  <div class="kanban-col flex-shrink-0" style="width:300px" data-col="cancelled">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <button class="btn btn-sm btn-link text-decoration-none p-0" type="button" data-bs-toggle="collapse" data-bs-target="#col-cancelled-wrap">
+        <span class="badge bg-secondary">Cancelled</span> <i class="bi bi-chevron-down small"></i>
+      </button>
+      <span class="badge bg-light text-dark" id="count-cancelled">0</span>
+    </div>
+    <div class="collapse" id="col-cancelled-wrap">
+      <div class="kanban-cards d-flex flex-column gap-2" id="col-cancelled"></div>
+    </div>
+  </div>
 </div>
 
 <hr class="my-4">
@@ -97,6 +104,35 @@ $currency = $tenant['currency'] ?: '₹';
   </div>
 </div></div>
 
+<!-- Payment collection modal -->
+<div class="modal fade" id="payModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered">
+  <div class="modal-content">
+    <div class="modal-header py-2"><h6 class="modal-title" id="pmTitle">Collect Payment</h6>
+      <button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="pmOrderId">
+      <div class="text-center mb-3">
+        <div class="text-muted small">Amount payable</div>
+        <div class="display-6 fw-bold" id="pmTotal">—</div>
+      </div>
+      <label class="form-label small fw-bold">Payment mode</label>
+      <div class="d-flex flex-wrap gap-2 mb-3" id="pmModes">
+        <?php foreach (['cash'=>'Cash','upi'=>'UPI','card'=>'Card','bank'=>'Bank Transfer','online'=>'Online','due'=>'Due (unpaid)'] as $mv=>$ml): ?>
+          <button type="button" class="btn btn-outline-primary pm-mode" data-mode="<?= e($mv) ?>"><?= e($ml) ?></button>
+        <?php endforeach; ?>
+      </div>
+      <div id="pmCashBox" style="display:none">
+        <label class="form-label small">Amount received (cash)</label>
+        <input type="number" id="pmReceived" class="form-control" min="0" step="1" placeholder="0">
+        <div class="mt-1 small">Change to return: <strong id="pmChange">—</strong></div>
+      </div>
+    </div>
+    <div class="modal-footer py-2">
+      <button class="btn btn-success" id="pmConfirm" disabled><i class="bi bi-check2-circle"></i> Confirm Payment</button>
+    </div>
+  </div>
+</div></div>
+
 <audio id="dingSound" preload="auto" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"></audio>
 
 <?php
@@ -119,16 +155,35 @@ const money = n => CFG.currency + Number(n||0).toFixed(2);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lastMaxId = 0, firstLoad = true, allOrders = [], dt = null;
 
-// Map DB status -> board column key.
-function colOf(s){ if(s==='completed'||s==='cancelled') return 'done'; return s; }
+// Simplified POS columns: anything not completed/cancelled is "active".
+function colOf(s){ if(s==='completed') return 'completed'; if(s==='cancelled') return 'cancelled'; return 'active'; }
 
-// Next status buttons per current status.
-const FLOW = {new:['accepted','cancelled'], accepted:['preparing','cancelled'], preparing:['ready'], ready:['served'], served:['completed'], completed:[], cancelled:[]};
-const LABEL = {accepted:'Accept', preparing:'Start Preparing', ready:'Mark Ready', served:'Mark Served', completed:'Complete', cancelled:'Cancel'};
+// Payment mode display labels.
+const PAYLABEL = {cash:'Cash', upi:'UPI', card:'Card', bank:'Bank Transfer', online:'Online', counter:'Counter'};
+function payLabel(m){ return PAYLABEL[m] || (m?m.charAt(0).toUpperCase()+m.slice(1):'-'); }
+function isPaid(o){ return o.payment_status==='paid'; }
 
 function itemsSummary(o){ return (o.items||[]).map(i => i.qty+'× '+esc(i.item_name)).join(', '); }
 
+function payBadge(o){
+  return isPaid(o)
+    ? `<span class="badge bg-success-subtle text-success">Paid · \${payLabel(o.payment_mode)}</span>`
+    : `<span class="badge bg-danger-subtle text-danger">Unpaid</span>`;
+}
+
 function cardHtml(o){
+  const active = o.status!=='completed' && o.status!=='cancelled';
+  let actions = '';
+  if(active){
+    actions = `<div class="d-grid gap-1 mt-2" onclick="event.stopPropagation()">
+      <button class="btn btn-sm btn-success fw-semibold" onclick="openPay(\${o.id})"><i class="bi bi-cash-coin"></i> Complete &amp; Collect Payment</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="advance(\${o.id},'cancelled')">Cancel</button>
+    </div>`;
+  } else if(o.status==='completed' && !isPaid(o)){
+    actions = `<div class="d-grid mt-2" onclick="event.stopPropagation()">
+      <button class="btn btn-sm btn-warning" onclick="openPay(\${o.id})"><i class="bi bi-cash"></i> Mark Paid</button>
+    </div>`;
+  }
   return `<div class="card order-card shadow-sm" style="cursor:pointer" onclick="openOrder(\${o.id})">
     <div class="card-body p-2">
       <div class="d-flex justify-content-between">
@@ -137,7 +192,10 @@ function cardHtml(o){
       </div>
       <div class="small text-muted">\${o.table_no?('Table '+esc(o.table_no)):esc(o.order_type)}</div>
       <div class="small text-truncate">\${itemsSummary(o)}</div>
-      <div class="fw-semibold mt-1">\${money(o.total)}</div>
+      <div class="d-flex justify-content-between align-items-center mt-1">
+        <span class="fw-semibold">\${money(o.total)}</span>\${payBadge(o)}
+      </div>
+      \${actions}
     </div></div>`;
 }
 
@@ -151,7 +209,7 @@ function timeAgo(ts){
 
 function render(orders){
   allOrders = orders;
-  const cols = {new:[],accepted:[],preparing:[],ready:[],served:[],done:[]};
+  const cols = {active:[], completed:[], cancelled:[]};
   orders.forEach(o => { const c = colOf(o.status); if(cols[c]) cols[c].push(o); });
   Object.keys(cols).forEach(k => {
     document.getElementById('col-'+k).innerHTML = cols[k].map(cardHtml).join('') || '<div class="text-muted small text-center py-3">—</div>';
@@ -198,6 +256,7 @@ function openOrder(id){
       <div><b>Customer:</b> \${esc(o.customer_name)||'-'} \${o.customer_mobile?('· '+esc(o.customer_mobile)):''}</div>
       <div><b>Type:</b> \${esc(o.order_type)} \${o.table_no?('· Table '+esc(o.table_no)):''} \${o.staff_name?('· by '+esc(o.staff_name)):''}</div>
       <div><b>Status:</b> <span class="badge bg-secondary">\${esc(o.status)}</span></div>
+      <div><b>Payment:</b> \${isPaid(o)?('<span class="text-success">Paid · '+payLabel(o.payment_mode)+'</span>'):'<span class="text-danger">Unpaid</span>'}</div>
     </div>
     <table class="table table-sm"><thead><tr><th>Item</th><th class="text-center">Qty</th><th class="text-end">Total</th></tr></thead>
     <tbody>\${rows}</tbody>
@@ -208,7 +267,14 @@ function openOrder(id){
       <tr class="fw-bold"><td colspan="2" class="text-end">Total</td><td class="text-end">\${money(o.total)}</td></tr>
     </tfoot></table>`;
   const foot = document.getElementById('omFooter');
-  let btns = (FLOW[o.status]||[]).map(ns=>`<button class="btn btn-sm \${ns==='cancelled'?'btn-outline-danger':'btn-primary'}" onclick="advance(\${o.id},'\${ns}')">\${LABEL[ns]}</button>`).join('');
+  const active = o.status!=='completed' && o.status!=='cancelled';
+  let btns = '';
+  if(active){
+    btns = `<button class="btn btn-sm btn-success" onclick="openPay(\${o.id})"><i class="bi bi-cash-coin"></i> Complete &amp; Collect Payment</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="advance(\${o.id},'cancelled')">Cancel Order</button>`;
+  } else if(o.status==='completed' && !isPaid(o)){
+    btns = `<button class="btn btn-sm btn-warning" onclick="openPay(\${o.id})"><i class="bi bi-cash"></i> Mark Paid</button>`;
+  }
   foot.innerHTML = btns +
     `<button class="btn btn-sm btn-outline-secondary" onclick="printKOT(\${o.id})"><i class="bi bi-printer"></i> KOT</button>
      <button class="btn btn-sm btn-outline-dark" onclick="printBill(\${o.id})"><i class="bi bi-receipt"></i> Bill</button>`;
@@ -216,11 +282,60 @@ function openOrder(id){
   omModal.show();
 }
 
+// Advance/cancel via the legacy status action (kept for KOT compatibility).
 function advance(id,status){
-  AK.post(CFG.base+'/api/order.php?action=status', {order_id:id, status:status}).then(res=>{
-    AK.handle(res, ()=>{ omModal.hide(); poll(); });
+  const go = () => AK.post(CFG.base+'/api/order.php?action=status', {order_id:id, status:status}).then(res=>{
+    AK.handle(res, ()=>{ if(omModal) omModal.hide(); poll(); });
   });
+  if(status==='cancelled'){ AK.confirm('Cancel this order?').then(ok=>{ if(ok) go(); }); }
+  else go();
 }
+
+// ---- Payment collection modal ----
+let payModal, pmMode = null;
+function openPay(id){
+  const o = allOrders.find(x=>+x.id===+id); if(!o) return;
+  if(omModal) omModal.hide();
+  pmMode = null;
+  document.getElementById('pmOrderId').value = o.id;
+  document.getElementById('pmTitle').textContent = 'Collect Payment · #'+o.order_no;
+  document.getElementById('pmTotal').textContent = money(o.total);
+  document.getElementById('pmTotal').dataset.total = o.total;
+  document.getElementById('pmConfirm').disabled = true;
+  document.getElementById('pmCashBox').style.display = 'none';
+  document.getElementById('pmReceived').value = '';
+  document.getElementById('pmChange').textContent = '—';
+  document.querySelectorAll('#pmModes .pm-mode').forEach(b=>{ b.classList.remove('active','btn-primary'); b.classList.add('btn-outline-primary'); });
+  payModal = payModal || new bootstrap.Modal(document.getElementById('payModal'));
+  payModal.show();
+}
+document.querySelectorAll('#pmModes .pm-mode').forEach(b=>b.addEventListener('click', ()=>{
+  pmMode = b.dataset.mode;
+  document.querySelectorAll('#pmModes .pm-mode').forEach(x=>{ x.classList.remove('active','btn-primary'); x.classList.add('btn-outline-primary'); });
+  b.classList.add('active','btn-primary'); b.classList.remove('btn-outline-primary');
+  document.getElementById('pmCashBox').style.display = (pmMode==='cash') ? 'block' : 'none';
+  document.getElementById('pmConfirm').disabled = false;
+  document.getElementById('pmConfirm').innerHTML = (pmMode==='due')
+    ? '<i class="bi bi-hourglass"></i> Complete (leave unpaid)'
+    : '<i class="bi bi-check2-circle"></i> Confirm Payment';
+}));
+document.getElementById('pmReceived').addEventListener('input', function(){
+  const total = parseFloat(document.getElementById('pmTotal').dataset.total)||0;
+  const rec = parseFloat(this.value)||0;
+  const change = rec - total;
+  document.getElementById('pmChange').textContent = change>=0 ? money(change) : '—';
+});
+document.getElementById('pmConfirm').addEventListener('click', function(){
+  if(!pmMode) return;
+  const id = document.getElementById('pmOrderId').value;
+  const data = {order_id:id, payment_mode:pmMode};
+  if(pmMode==='cash'){ const r = document.getElementById('pmReceived').value; if(r!=='') data.amount_received = r; }
+  this.disabled = true;
+  AK.post(CFG.base+'/api/order.php?action=collect', data).then(res=>{
+    this.disabled = false;
+    AK.handle(res, ()=>{ payModal.hide(); poll(); });
+  });
+});
 
 // ---- Printing (thermal-friendly popups) ----
 function printWindow(html){
@@ -265,7 +380,9 @@ function printBill(id){
       <tr><td>SGST (\${CFG.sgst}%)</td><td class="r">\${money(o.tax/2)}</td></tr>
       <tr><td>Service (\${CFG.svc}%)</td><td class="r">\${money(o.service_charge)}</td></tr>
       <tr><td><b>TOTAL</b></td><td class="r"><b>\${money(o.total)}</b></td></tr>
-    </table><div class="line"></div><div class="c">Thank you! Visit again.</div>`);
+    </table><div class="line"></div>
+    <div class="c">Payment: \${isPaid(o)?(payLabel(o.payment_mode)+' — PAID'):'UNPAID (DUE)'}</div>
+    <div class="line"></div><div class="c">Thank you! Visit again.</div>`);
 }
 
 // ---- History DataTable ----
@@ -284,7 +401,7 @@ function renderHistory(){
     o.table_no?('Table '+esc(o.table_no)):esc(o.order_type),
     esc(itemsSummary(o)),
     money(o.total),
-    '<span class="badge bg-secondary">'+esc(o.status)+'</span>',
+    '<span class="badge bg-secondary">'+esc(o.status)+'</span> '+payBadge(o),
     esc((o.created_at||'').replace('T',' ')),
     '<button class="btn btn-sm btn-outline-primary" onclick="openOrder('+o.id+')">View</button>'
   ]);
