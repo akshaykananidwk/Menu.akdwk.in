@@ -181,7 +181,9 @@ function ak_github_latest_commit(): array {
         'short'   => substr($sha, 0, 7),
         'message' => (string)($data['commit']['message'] ?? ''),
         'date'    => (string)($data['commit']['author']['date'] ?? ''),
-        'zipball' => 'https://api.github.com/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/zipball/' . rawurlencode($branch),
+        // Download the archive by COMMIT SHA (unambiguous, and avoids issues
+        // with branch names that contain slashes, e.g. "claude/feature-x").
+        'zipball' => 'https://api.github.com/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/zipball/' . $sha,
         'error'   => '',
         'http'    => $http,
     ];
@@ -506,7 +508,10 @@ function ak_download_zip(string $url, string $dest): array {
         return ['ok' => false, 'error' => 'cURL not available.'];
     }
     $token = ak_dec_token((string)getSetting('github_token', ''));
-    $headers = ['User-Agent: AK-Menu-System', 'Accept: application/octet-stream'];
+    // NOTE: GitHub's zipball endpoint 302-redirects to codeload and does NOT
+    // accept "application/octet-stream" (that Accept is only for release-asset
+    // downloads) — sending it returns HTTP 415. Use the standard API accept.
+    $headers = ['User-Agent: AK-Menu-System', 'Accept: application/vnd.github+json', 'X-GitHub-Api-Version: 2022-11-28'];
     if ($token !== '') { $headers[] = 'Authorization: token ' . $token; }
 
     $fh = @fopen($dest, 'w');

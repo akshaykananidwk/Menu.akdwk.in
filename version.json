@@ -1,13 +1,14 @@
 {
-  "version": "1.0.2",
-  "released_on": "2026-07-20",
-  "min_php": "8.0",
-  "changelog": [
-    "Updates: switched to simple branch/commit-based updates — set repo + branch + token once, then Check & Update straight from GitHub (no Releases needed)",
-    "Update Settings simplified to 3 fields (owner/repo, branch, token); branch is now free text",
-    "Version badge and history now track the git commit (like gh:abc1234)",
-    "One-click vegetarian Demo Menu (53 items, English + Gujarati, bundled photos)",
-    "Gemini: model auto-fallback (handles retired models), 429 retry, live Test tool in Settings",
-    "Fixed QR/menu images on cPanel; installer SQL import and JSON-safe errors"
-  ]
+    "version": "1.0.3",
+    "released_on": "2026-07-20",
+    "min_php": "8.0",
+    "changelog": [
+        "Fixed one-click update download (GitHub zipball HTTP 415): download by commit SHA with the correct Accept header",
+        "Updates: switched to simple branch/commit-based updates — set repo + branch + token once, then Check & Update straight from GitHub (no Releases needed)",
+        "Update Settings simplified to 3 fields (owner/repo, branch, token); branch is now free text",
+        "Version badge and history now track the git commit (like gh:abc1234)",
+        "One-click vegetarian Demo Menu (53 items, English + Gujarati, bundled photos)",
+        "Gemini: model auto-fallback (handles retired models), 429 retry, live Test tool in Settings",
+        "Fixed QR/menu images on cPanel; installer SQL import and JSON-safe errors"
+    ]
 }
