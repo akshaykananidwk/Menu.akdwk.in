@@ -18,8 +18,14 @@ $activeNav = 'qr';
 $slug     = (string)$tenant['slug'];
 $designs  = standee_designs();
 $palettes = standee_palettes();
-$layouts  = standee_layouts();
-$current  = (string)getSetting('standee_design_' . $tid, '');
+$families = standee_families();
+$rawDefault = (string)getSetting('standee_design_' . $tid, '');
+// Only treat a stored default as current if it still resolves to a real design.
+$current  = standee_resolve($rawDefault) ? $rawDefault : '';
+$currentLabel = '';
+if ($current) {
+    foreach ($designs as $d) { if ($d['id'] === $current) { $currentLabel = $d['family_name'] . ' · ' . $d['palette_name']; break; } }
+}
 $renderBase = BASE_URL . '/standee/render.php';
 
 require __DIR__ . '/_header.php';
@@ -32,13 +38,20 @@ require __DIR__ . '/_header.php';
   <a href="<?= e(BASE_URL) ?>/client/qr.php" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to QR &amp; Standee</a>
 </div>
 
-<!-- Theme filter chips -->
+<!-- Filters: style family + colour theme -->
 <div class="card mb-3"><div class="card-body py-2">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <span class="small text-muted me-1" style="min-width:52px">Style:</span>
+    <button type="button" class="btn btn-sm btn-primary family-chip active" data-family="all">All styles</button>
+    <?php foreach ($families as $fid => $f): ?>
+      <button type="button" class="btn btn-sm btn-outline-secondary family-chip" data-family="<?= e($fid) ?>"><?= e($f['name']) ?></button>
+    <?php endforeach; ?>
+  </div>
   <div class="d-flex flex-wrap align-items-center gap-2">
-    <span class="small text-muted me-1">Theme:</span>
-    <button type="button" class="btn btn-sm btn-primary filter-chip active" data-filter="all">All</button>
+    <span class="small text-muted me-1" style="min-width:52px">Colour:</span>
+    <button type="button" class="btn btn-sm btn-primary theme-chip active" data-theme="all">All colours</button>
     <?php foreach ($palettes as $pid => $p): ?>
-      <button type="button" class="btn btn-sm btn-outline-secondary filter-chip" data-filter="<?= e($pid) ?>">
+      <button type="button" class="btn btn-sm btn-outline-secondary theme-chip" data-theme="<?= e($pid) ?>">
         <span class="d-inline-block rounded-circle align-middle me-1" style="width:12px;height:12px;background:<?= e($p['c1']) ?>;border:1px solid rgba(0,0,0,.15)"></span><?= e($p['name']) ?>
       </button>
     <?php endforeach; ?>
@@ -47,7 +60,7 @@ require __DIR__ . '/_header.php';
 
 <?php if ($current): ?>
 <div class="alert alert-success py-2 small" id="currentDefaultBar">
-  <i class="bi bi-star-fill"></i> Your default design is <strong id="currentDefaultLabel"><?= e($current) ?></strong>.
+  <i class="bi bi-star-fill"></i> Your default design is <strong id="currentDefaultLabel"><?= e($currentLabel) ?></strong>.
 </div>
 <?php endif; ?>
 
@@ -57,16 +70,16 @@ require __DIR__ . '/_header.php';
     $thumbUrl = $renderBase . '?slug=' . urlencode($slug) . '&design=' . urlencode($d['id']) . '&thumb=1';
     $isCur = ($d['id'] === $current);
   ?>
-  <div class="col-6 col-md-4 col-lg-3 col-xl-2 design-cell" data-palette="<?= e($d['palette']) ?>">
+  <div class="col-6 col-md-4 col-lg-3 col-xl-2 design-cell" data-palette="<?= e($d['palette']) ?>" data-family="<?= e($d['family']) ?>">
     <div class="card h-100 design-card <?= $isCur ? 'border-primary' : '' ?>" role="button"
          data-design="<?= e($d['id']) ?>"
-         data-label="<?= e($d['layout_name'] . ' · ' . $d['palette_name']) ?>">
+         data-label="<?= e($d['family_name'] . ' · ' . $d['palette_name']) ?>">
       <div class="ratio bg-light" style="--bs-aspect-ratio:177%">
         <img loading="lazy" src="<?= e($thumbUrl) ?>" alt="<?= e($d['id']) ?>" class="w-100 h-100" style="object-fit:cover;border-radius:.35rem">
       </div>
       <div class="card-body p-2 text-center">
-        <div class="small fw-semibold text-truncate"><?= e($d['palette_name']) ?></div>
-        <div class="text-muted" style="font-size:.72rem"><?= e($d['layout_name']) ?></div>
+        <div class="small fw-semibold text-truncate"><?= e($d['family_name']) ?></div>
+        <div class="text-muted" style="font-size:.72rem"><?= e($d['palette_name']) ?></div>
         <?php if ($isCur): ?><span class="badge bg-primary mt-1 default-badge"><i class="bi bi-star-fill"></i> Default</span><?php endif; ?>
       </div>
     </div>
@@ -120,17 +133,27 @@ $pageScript = <<<HTML
   const RENDER = $renderBaseJs, SLUG = $slugJs, API = $apiJs, OWN = $ownNumberJs;
   let activeDesign = null;
 
-  // Theme filter chips.
-  document.querySelectorAll('.filter-chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      document.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active','btn-primary'); c.classList.add('btn-outline-secondary'); });
-      chip.classList.add('active','btn-primary'); chip.classList.remove('btn-outline-secondary');
-      const f = chip.getAttribute('data-filter');
-      document.querySelectorAll('.design-cell').forEach(function(cell){
-        cell.style.display = (f === 'all' || cell.getAttribute('data-palette') === f) ? '' : 'none';
+  // Combined filters: style family AND colour theme.
+  let activeFamily = 'all', activeTheme = 'all';
+  function applyFilters(){
+    document.querySelectorAll('.design-cell').forEach(function(cell){
+      const okF = (activeFamily === 'all' || cell.getAttribute('data-family') === activeFamily);
+      const okT = (activeTheme === 'all' || cell.getAttribute('data-palette') === activeTheme);
+      cell.style.display = (okF && okT) ? '' : 'none';
+    });
+  }
+  function wireChips(selector, attr, setter){
+    document.querySelectorAll(selector).forEach(function(chip){
+      chip.addEventListener('click', function(){
+        document.querySelectorAll(selector).forEach(function(c){ c.classList.remove('active','btn-primary'); c.classList.add('btn-outline-secondary'); });
+        chip.classList.add('active','btn-primary'); chip.classList.remove('btn-outline-secondary');
+        setter(chip.getAttribute(attr));
+        applyFilters();
       });
     });
-  });
+  }
+  wireChips('.family-chip', 'data-family', function(v){ activeFamily = v; });
+  wireChips('.theme-chip', 'data-theme', function(v){ activeTheme = v; });
 
   function buildUrl(size, format, download){
     let u = RENDER + '?slug=' + encodeURIComponent(SLUG) + '&design=' + encodeURIComponent(activeDesign) + '&size=' + size + '&format=' + format;
