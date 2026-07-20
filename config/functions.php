@@ -831,6 +831,31 @@ function mediaUrl(?string $path): string {
     return BASE_URL . '/' . ltrim($path, '/');
 }
 
+/**
+ * Record a public menu open/scan for analytics (aggregated per tenant per day).
+ * Counted once per browser session per day per tenant, so refreshes don't
+ * inflate the number. Never throws — analytics must not break the menu page.
+ */
+function recordMenuView(int $tenantId): void {
+    if ($tenantId <= 0) return;
+    // Don't count the owner previewing their own menu while logged in.
+    if (currentTenantId() === $tenantId || isSuperAdmin()) return;
+    $key = 'mv_' . $tenantId . '_' . date('Ymd');
+    if (!empty($_SESSION[$key])) return;
+    $_SESSION[$key] = 1;
+    try {
+        db_query('INSERT INTO ' . tbl('menu_views') . ' (tenant_id, view_date, views) VALUES (:t, CURDATE(), 1)
+                  ON DUPLICATE KEY UPDATE views = views + 1', [':t' => $tenantId]);
+    } catch (Throwable $e) { /* table may not exist yet on un-migrated installs */ }
+}
+
+/** Total menu views for a tenant between two dates (inclusive). */
+function menuViewsTotal(int $tenantId, string $from, string $to): int {
+    return (int)db_val('SELECT COALESCE(SUM(views),0) FROM ' . tbl('menu_views') . '
+                        WHERE tenant_id = :t AND view_date BETWEEN :a AND :b',
+                        [':t' => $tenantId, ':a' => $from, ':b' => $to]);
+}
+
 /** Public menu URL for a tenant slug. */
 function publicMenuUrl(string $slug): string {
     return BASE_URL . '/r/' . $slug;

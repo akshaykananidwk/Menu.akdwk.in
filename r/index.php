@@ -43,6 +43,9 @@ if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'gu'])) {
 $lang = $_SESSION['public_lang'] ?? ($tenant['language'] ?: 'en');
 $_SESSION['lang'] = $lang;
 
+// ---- Record the menu open for scan analytics (once per session/day) --------
+recordMenuView((int)$tenant['id']);
+
 // ---- Build menu + template context ------------------------------------------
 $menuData     = getTenantMenu((int)$tenant['id'], true);
 $menu         = $menuData;                       // templates read $menu['tenant'], $menu['categories']

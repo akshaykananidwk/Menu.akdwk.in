@@ -555,6 +555,19 @@ CREATE TABLE `{PREFIX}otp_verifications` (
   KEY `idx_otp_mobile` (`mobile`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------------
+-- Menu views (scan analytics — aggregated per tenant per day)
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}menu_views` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` INT UNSIGNED NOT NULL,
+  `view_date` DATE NOT NULL,
+  `views` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_tenant_date` (`tenant_id`, `view_date`),
+  KEY `idx_view_date` (`view_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

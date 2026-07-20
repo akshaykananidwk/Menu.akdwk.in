@@ -1,8 +1,9 @@
 {
-    "version": "1.0.4",
+    "version": "1.0.5",
     "released_on": "2026-07-20",
     "min_php": "8.0",
     "changelog": [
+        "Menu scan analytics: per-restaurant daily opens on client & super-admin dashboards",
         "POS-style order flow: owner Orders board simplified to New/Active, Completed and Cancelled",
         "Payment collection: 'Complete & Collect Payment' with Cash / UPI / Card / Bank / Online / Due, cash change calculation",
         "Standalone 'Mark Paid' on any unpaid order; payment mode + paid/unpaid shown in order detail and printed bill",

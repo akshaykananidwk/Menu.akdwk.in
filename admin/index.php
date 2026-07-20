@@ -94,6 +94,22 @@ $revenueMonth = (float)db_val(
     [':y' => date('Y'), ':m' => date('n')]
 );
 
+// ---- Platform-wide menu scan analytics (the growth metric) ----
+$scansToday = (int)db_val('SELECT COALESCE(SUM(views),0) FROM ' . tbl('menu_views') . ' WHERE view_date = :d', [':d' => $today]);
+$scansTotal = (int)db_val('SELECT COALESCE(SUM(views),0) FROM ' . tbl('menu_views'));
+// Daily opens, last 30 days (platform-wide).
+$scanTrend = [];
+$srows = db_all('SELECT view_date d, SUM(views) v FROM ' . tbl('menu_views') . '
+                 WHERE view_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY) GROUP BY view_date');
+$smap = []; foreach ($srows as $r) { $smap[$r['d']] = (int)$r['v']; }
+$scanLabels = []; $scanData = [];
+for ($i = 29; $i >= 0; $i--) { $day = date('Y-m-d', strtotime("-$i day")); $scanLabels[] = date('d M', strtotime($day)); $scanData[] = $smap[$day] ?? 0; }
+// Top restaurants by total scans.
+$topScanned = db_all('SELECT t.restaurant_name, t.slug, COALESCE(SUM(mv.views),0) v
+                      FROM ' . tbl('tenants') . ' t
+                      LEFT JOIN ' . tbl('menu_views') . ' mv ON mv.tenant_id = t.id
+                      GROUP BY t.id ORDER BY v DESC LIMIT 10');
+
 // ---- Signup trend: new tenants per month for the last 12 months ----
 $rows = db_all(
     "SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS c
@@ -166,7 +182,38 @@ require __DIR__ . '/_header.php';
   </div>
 </div>
 
-<div class="row g-3">
+<!-- ===== Growth: platform-wide menu scans ===== -->
+<div class="row g-3 mt-1">
+  <div class="col-lg-8">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-semibold mb-0"><i class="bi bi-qr-code-scan text-success"></i> Menu Opens / Scans — Daily (last 30 days)</h6>
+        <div class="text-end">
+          <span class="badge bg-success fs-6"><?= number_format($scansToday) ?> today</span>
+          <span class="badge bg-secondary fs-6"><?= number_format($scansTotal) ?> total</span>
+        </div>
+      </div>
+      <canvas id="scanChart" height="90"></canvas>
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card h-100"><div class="card-body">
+      <h6 class="fw-semibold mb-3"><i class="bi bi-trophy text-warning"></i> Top Restaurants by Scans</h6>
+      <?php if (!$topScanned): ?><p class="text-muted small mb-0">No scans yet.</p><?php else: ?>
+        <ul class="list-group list-group-flush">
+          <?php foreach ($topScanned as $i => $ts): ?>
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+              <span class="text-truncate"><?= ($i+1) ?>. <?= e($ts['restaurant_name']) ?></span>
+              <span class="badge bg-primary rounded-pill"><?= number_format((int)$ts['v']) ?></span>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
   <div class="col-lg-8">
     <div class="card">
       <div class="card-body">
@@ -251,6 +298,16 @@ $pageScript = '<script>
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
     }
   });
+  var sc = document.getElementById("scanChart");
+  if (sc && window.Chart) {
+    new Chart(sc, {
+      type: "bar",
+      data: { labels: ' . json_encode($scanLabels) . ',
+        datasets: [{ label:"Scans", data: ' . json_encode($scanData) . ',
+          backgroundColor:"rgba(42,157,143,.85)", borderRadius:5 }] },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}} }
+    });
+  }
 })();
 </script>';
 require __DIR__ . '/_footer.php';

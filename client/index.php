@@ -15,6 +15,15 @@ $totalItems   = (int)db_val('SELECT COUNT(*) FROM ' . tbl('items') . ' WHERE ten
 $totalCats    = (int)db_val('SELECT COUNT(*) FROM ' . tbl('categories') . ' WHERE tenant_id = :t AND status = 1', [':t' => $tid]);
 $newOrders    = (int)db_val("SELECT COUNT(*) FROM " . tbl('orders') . " WHERE tenant_id = :t AND status = 'new'", [':t' => $tid]);
 
+// --- Menu scan analytics -----------------------------------------------------
+$todayScans = (int)db_val('SELECT COALESCE(SUM(views),0) FROM ' . tbl('menu_views') . ' WHERE tenant_id = :t AND view_date = CURDATE()', [':t' => $tid]);
+$totalScans = (int)db_val('SELECT COALESCE(SUM(views),0) FROM ' . tbl('menu_views') . ' WHERE tenant_id = :t', [':t' => $tid]);
+$scanLabels = []; $scanData = [];
+$srows = db_all('SELECT view_date d, views v FROM ' . tbl('menu_views') . '
+                 WHERE tenant_id = :t AND view_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)', [':t' => $tid]);
+$smap = []; foreach ($srows as $r) { $smap[$r['d']] = (int)$r['v']; }
+for ($i = 13; $i >= 0; $i--) { $day = date('Y-m-d', strtotime("-$i day")); $scanLabels[] = date('d M', strtotime($day)); $scanData[] = $smap[$day] ?? 0; }
+
 $plan      = tenantPlan($tid);
 $itemLimit = checkPlanLimit($tid, 'items');
 $pct       = $itemLimit['max'] > 0 ? min(100, round($itemLimit['used'] / $itemLimit['max'] * 100)) : 0;
@@ -44,11 +53,20 @@ require __DIR__ . '/_header.php';
   <div class="col-6 col-lg-3"><div class="kpi-card kpi-2">
     <div class="kpi-val"><?= e(money($todayRevenue)) ?></div><div class="kpi-label"><i class="bi bi-cash-stack"></i> Today's Revenue</div></div></div>
   <?php endif; ?>
+  <div class="col-6 col-lg-3"><div class="kpi-card kpi-1">
+    <div class="kpi-val"><?= number_format($todayScans) ?></div><div class="kpi-label"><i class="bi bi-qr-code-scan"></i> Menu Scans Today</div></div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-card kpi-2">
+    <div class="kpi-val"><?= number_format($totalScans) ?></div><div class="kpi-label"><i class="bi bi-eye"></i> Total Menu Scans</div></div></div>
   <div class="col-6 col-lg-3"><div class="kpi-card kpi-3">
     <div class="kpi-val"><?= $totalItems ?></div><div class="kpi-label"><i class="bi bi-card-list"></i> Menu Items</div></div></div>
   <div class="col-6 col-lg-3"><div class="kpi-card kpi-4">
     <div class="kpi-val"><?= $totalCats ?></div><div class="kpi-label"><i class="bi bi-grid"></i> Categories</div></div></div>
 </div>
+
+<div class="card mt-3"><div class="card-body">
+  <h6 class="fw-semibold mb-3"><i class="bi bi-graph-up-arrow"></i> Menu Scans — last 14 days</h6>
+  <canvas id="scansChart" height="90"></canvas>
+</div></div>
 
 <?php if ($canOrder && $newOrders > 0): ?>
 <div class="alert alert-warning d-flex align-items-center justify-content-between">
@@ -109,9 +127,20 @@ require __DIR__ . '/_header.php';
 </div>
 
 <?php
-$pageScript = '';
+$pageScript = '<script>
+(function(){
+  const sc = document.getElementById("scansChart");
+  if(sc){ new Chart(sc, {
+    type: "bar",
+    data: { labels: ' . json_encode($scanLabels) . ',
+      datasets: [{ label:"Scans", data: ' . json_encode($scanData) . ',
+        backgroundColor:"rgba(45,157,143,.8)", borderRadius:6 }] },
+    options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}} }
+  }); }
+})();
+</script>';
 if ($canOrder) {
-    $pageScript = '<script>
+    $pageScript .= '<script>
     (function(){
       const ctx = document.getElementById("ordersChart");
       if(!ctx) return;
