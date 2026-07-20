@@ -31,8 +31,8 @@ body{font-family:'Poppins',system-ui,sans-serif;}
   <div class="container">
     <a class="navbar-brand fw-bold" href="#"><i class="bi bi-grid-1x2-fill" style="color:<?= e($primary) ?>"></i> <?= e($siteName) ?></a>
     <div class="d-flex gap-2">
-      <a href="<?= e(BASE_URL) ?>/client/login.php" class="btn btn-outline-secondary btn-sm">Restaurant Login</a>
-      <a href="<?= e(BASE_URL) ?>/admin/login.php" class="btn btn-p btn-sm">Admin</a>
+      <a href="<?= e(BASE_URL) ?>/client/login.php" class="btn btn-outline-secondary btn-sm">Login</a>
+      <a href="<?= e(BASE_URL) ?>/signup.php" class="btn btn-p btn-sm">Start Free</a>
     </div>
   </div>
 </nav>
@@ -42,9 +42,8 @@ body{font-family:'Poppins',system-ui,sans-serif;}
     <h1 class="fw-bold display-5"><?= e($tagline) ?></h1>
     <p class="lead opacity-75 mt-3">QR menus, AI menu import, direct & waiter ordering, KOT screen, WhatsApp automation — built for Indian restaurants.</p>
     <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
-      <a href="<?= e(BASE_URL) ?>/client/login.php" class="btn btn-light btn-lg">Restaurant Panel</a>
-      <a href="<?= e(BASE_URL) ?>/waiter/login.php" class="btn btn-outline-light btn-lg">Waiter</a>
-      <a href="<?= e(BASE_URL) ?>/kitchen/login.php" class="btn btn-outline-light btn-lg">Kitchen (KOT)</a>
+      <a href="<?= e(BASE_URL) ?>/signup.php" class="btn btn-light btn-lg fw-semibold">🎉 Start 7-Day Free Trial</a>
+      <a href="<?= e(BASE_URL) ?>/client/login.php" class="btn btn-outline-light btn-lg">Restaurant Login</a>
     </div>
   </div>
 </header>

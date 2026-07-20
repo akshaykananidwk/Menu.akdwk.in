@@ -72,6 +72,10 @@ $siteName = getSetting('site_name', 'AK Menu System');
         <button class="btn btn-danger w-100">Verify & Login</button></form>
     </div>
   </div>
+  <div class="text-center mt-3 pt-2 border-top">
+    <span class="text-muted small">New restaurant?</span>
+    <a href="<?= e(BASE_URL) ?>/signup.php" class="fw-semibold text-decoration-none">Sign up free →</a>
+  </div>
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= e(BASE_URL) ?>/assets/js/app.js"></script>
