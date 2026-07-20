@@ -19,6 +19,7 @@ require __DIR__ . '/_header.php';
   </div>
   <div class="d-flex gap-2">
     <button class="btn btn-sm btn-success" onclick="loadDemoMenu()"><i class="bi bi-stars"></i> Load Demo Menu</button>
+    <button class="btn btn-sm btn-outline-success" onclick="autoAddPhotos()"><i class="bi bi-image"></i> Auto-add Photos</button>
     <a href="<?= e($apiUrl) ?>?action=export_csv" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i> Export CSV</a>
     <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('importFile').click()"><i class="bi bi-upload"></i> Import CSV</button>
     <input type="file" id="importFile" accept=".csv" class="d-none" onchange="importCsv(this)">
@@ -40,6 +41,28 @@ function loadDemoMenu(){
     const replace = r.isConfirmed ? 1 : 0;
     Swal.fire({title:'Loading demo menu…', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
     AK.post('<?= e(BASE_URL) ?>/api/load_demo.php?action=load', {replace})
+      .then(res=>{
+        if(res.status==='success'){
+          Swal.fire({icon:'success', title:'Done!', text:res.message}).then(()=>location.reload());
+        } else { Swal.fire({icon:'error', title:'Failed', text:res.message||'Error'}); }
+      })
+      .catch(()=>Swal.fire({icon:'error',title:'Request failed'}));
+  });
+}
+
+// Bulk-assign relevant bundled food photos to items that have no image yet.
+function autoAddPhotos(){
+  Swal.fire({
+    title: 'Auto-add photos?',
+    html: 'Items <b>without an image</b> will get a relevant food photo automatically.<br>You can still replace any photo later.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Add photos',
+    confirmButtonColor: '#2a9d8f',
+  }).then(r=>{
+    if(!r.isConfirmed) return;
+    Swal.fire({title:'Adding photos…', didOpen:()=>Swal.showLoading(), allowOutsideClick:false});
+    AK.post('<?= e(BASE_URL) ?>/api/autophoto.php?action=fill', {})
       .then(res=>{
         if(res.status==='success'){
           Swal.fire({icon:'success', title:'Done!', text:res.message}).then(()=>location.reload());

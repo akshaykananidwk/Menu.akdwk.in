@@ -71,6 +71,8 @@ try {
         // SAVE — insert reviewed categories + items (respect plan limits).
         // ---------------------------------------------------------------------
         case 'save': {
+            // Auto food-photo matcher (bundled local photos for items without one).
+            require_once dirname(__DIR__) . '/config/food_icons.php';
             $raw = $_POST['categories'] ?? '[]';
             $categories = is_array($raw) ? $raw : (json_decode($raw, true) ?: []);
             if (!$categories) { jsonError('Nothing to save.'); }
@@ -102,6 +104,8 @@ try {
                     if (!$lim['allowed']) { $skipped++; continue; }
 
                     $isVeg = array_key_exists('is_veg', $it) ? (int)(bool)$it['is_veg'] : 1;
+                    // Keep any user-provided image; otherwise auto-assign a relevant photo.
+                    $image = trim((string)($it['image'] ?? '')) ?: guessFoodImage($iname, $cname);
                     $itemId = db_insert('items', [
                         'tenant_id'   => $tid,
                         'category_id' => $catId,
@@ -109,6 +113,7 @@ try {
                         'name_gu'     => trim($it['name_gu'] ?? '') ?: null,
                         'description' => trim($it['description'] ?? '') ?: null,
                         'price'       => (float)($it['price'] ?? 0),
+                        'image'       => $image ?: null,
                         'is_veg'      => $isVeg,
                         'sort_order'  => $addedItems + 1,
                     ]);

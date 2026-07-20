@@ -169,6 +169,8 @@ jsonSuccess('Account created successfully!', [
  * category/item limits. Returns [categoryCount, itemCount].
  */
 function signup_insert_menu(int $tenantId, array $data, array $plan): array {
+    // Auto food-photo matcher (bundled local photos so menus look rich instantly).
+    require_once dirname(__DIR__) . '/config/food_icons.php';
     $maxCats  = (int)$plan['max_categories'];
     $maxItems = (int)$plan['max_items'];
     $catN = 0; $itemN = 0; $sort = 0;
@@ -186,13 +188,17 @@ function signup_insert_menu(int $tenantId, array $data, array $plan): array {
         foreach ($cat['items'] ?? [] as $it) {
             if ($itemN >= $maxItems) break;
             $price = is_numeric($it['price'] ?? null) ? (float)$it['price'] : 0;
+            $iname = mb_substr(trim($it['name'] ?? 'Item'), 0, 160);
+            // Assign a relevant bundled photo when the extraction gave none.
+            $image = trim((string)($it['image'] ?? '')) ?: guessFoodImage($iname, $cat['name'] ?? '');
             $itemId = db_insert('items', [
                 'tenant_id'   => $tenantId,
                 'category_id' => $catId,
-                'name'        => mb_substr(trim($it['name'] ?? 'Item'), 0, 160),
+                'name'        => $iname,
                 'name_gu'     => isset($it['name_gu']) ? mb_substr(trim($it['name_gu']), 0, 200) : null,
                 'description' => isset($it['description']) ? trim($it['description']) : null,
                 'price'       => $price,
+                'image'       => $image ?: null,
                 'is_veg'      => !empty($it['is_veg']) ? 1 : 0,
                 'is_available'=> 1,
                 'sort_order'  => $isort++,
