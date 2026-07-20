@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "released_on": "2026-07-20",
+  "min_php": "8.0",
+  "changelog": [
+    "Initial release of AK Menu System",
+    "Multi-tenant SaaS restaurant menu & ordering",
+    "AI menu extraction via Google Gemini",
+    "WhatsApp automation, QR/standee generator, KOT screen",
+    "Web installer and GitHub auto-update"
+  ]
+}

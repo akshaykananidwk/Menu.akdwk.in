@@ -1,0 +1,143 @@
+{
+  "info": {
+    "name": "AK Menu System API",
+    "description": "AJAX endpoints for AK Menu System. All responses use the envelope {\"status\":\"success|error\",\"message\":\"\",\"data\":{}}. Client/admin endpoints require a valid session cookie (AKMENUSESS) and a csrf_token on POST. Public endpoints (order place/feedback, auth OTP, whatsapp webhook) need no login.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://menu.akdwk.in" },
+    { "key": "csrf", "value": "" },
+    { "key": "slug", "value": "spice-garden" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": { "method": "POST", "url": "{{base_url}}/admin/login.php",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "csrf_token", "value": "{{csrf}}" },
+              { "key": "email", "value": "admin@akdwk.in" },
+              { "key": "password", "value": "Admin@123" } ] } }
+        },
+        {
+          "name": "Client Login (password)",
+          "request": { "method": "POST", "url": "{{base_url}}/client/login.php",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "csrf_token", "value": "{{csrf}}" },
+              { "key": "mode", "value": "password" },
+              { "key": "login", "value": "9876543210" },
+              { "key": "password", "value": "Test@123" } ] } }
+        },
+        {
+          "name": "Send OTP (public)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/auth.php?action=send_otp",
+            "header": [ { "key": "X-Requested-With", "value": "XMLHttpRequest" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [ { "key": "mobile", "value": "9876543210" } ] } }
+        }
+      ]
+    },
+    {
+      "name": "Public Ordering",
+      "item": [
+        {
+          "name": "Place Order (public, no login)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/order.php?action=place",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"slug\": \"{{slug}}\",\n  \"table_token\": \"tbltoken123\",\n  \"customer_name\": \"Test Customer\",\n  \"customer_mobile\": \"9999999999\",\n  \"order_type\": \"dinein\",\n  \"items\": [\n    { \"id\": 1, \"name\": \"Paneer Tikka\", \"variant\": \"Full\", \"addons\": [], \"qty\": 2, \"price\": 180, \"notes\": \"less spicy\" }\n  ]\n}" } }
+        },
+        {
+          "name": "Submit Feedback (public)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/order.php?action=feedback",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{ \"order_id\": 1, \"slug\": \"{{slug}}\", \"rating\": 5, \"comment\": \"Great!\" }" } }
+        }
+      ]
+    },
+    {
+      "name": "Client — Menu",
+      "item": [
+        {
+          "name": "Category Save",
+          "request": { "method": "POST", "url": "{{base_url}}/api/menu.php?action=category_save",
+            "header": [ { "key": "X-Requested-With", "value": "XMLHttpRequest" }, { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "csrf_token", "value": "{{csrf}}" },
+              { "key": "name", "value": "Desserts" },
+              { "key": "name_gu", "value": "મીઠાઈ" } ] } }
+        },
+        {
+          "name": "Item Save",
+          "request": { "method": "POST", "url": "{{base_url}}/api/menu.php?action=item_save",
+            "header": [ { "key": "X-CSRF-Token", "value": "{{csrf}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "csrf_token", "value": "{{csrf}}" },
+              { "key": "category_id", "value": "1" },
+              { "key": "name", "value": "Gulab Jamun" },
+              { "key": "price", "value": "60" },
+              { "key": "is_veg", "value": "1" } ] } }
+        },
+        { "name": "Category Reorder", "request": { "method": "POST", "url": "{{base_url}}/api/menu.php?action=category_reorder" } },
+        { "name": "Bulk Action", "request": { "method": "POST", "url": "{{base_url}}/api/menu.php?action=bulk_action" } },
+        { "name": "Export CSV", "request": { "method": "GET", "url": "{{base_url}}/api/menu.php?action=export_csv" } }
+      ]
+    },
+    {
+      "name": "Client — AI / Design",
+      "item": [
+        { "name": "AI Extract", "request": { "method": "POST", "url": "{{base_url}}/api/ai.php?action=extract", "description": "multipart file upload of menu photos" } },
+        { "name": "AI Save", "request": { "method": "POST", "url": "{{base_url}}/api/ai.php?action=save" } },
+        { "name": "Save Design", "request": { "method": "POST", "url": "{{base_url}}/api/design.php?action=save_design" } },
+        { "name": "Save Settings", "request": { "method": "POST", "url": "{{base_url}}/api/design.php?action=settings" } }
+      ]
+    },
+    {
+      "name": "Orders / Tables / Staff",
+      "item": [
+        { "name": "Orders List (poll)", "request": { "method": "GET", "url": "{{base_url}}/api/order.php?action=list" } },
+        { "name": "Order Status Update", "request": { "method": "POST", "url": "{{base_url}}/api/order.php?action=status" } },
+        { "name": "Table Save", "request": { "method": "POST", "url": "{{base_url}}/api/table.php?action=table_save" } },
+        { "name": "Staff Save", "request": { "method": "POST", "url": "{{base_url}}/api/staff.php?action=staff_save" } },
+        { "name": "Sales Report", "request": { "method": "GET", "url": "{{base_url}}/api/reports.php?action=sales" } }
+      ]
+    },
+    {
+      "name": "Super Admin",
+      "item": [
+        { "name": "Client Save", "request": { "method": "POST", "url": "{{base_url}}/api/admin.php?action=client_save" } },
+        { "name": "Plan Save", "request": { "method": "POST", "url": "{{base_url}}/api/admin.php?action=plan_save" } }
+      ]
+    },
+    {
+      "name": "WhatsApp",
+      "item": [
+        { "name": "Test Message (admin)", "request": { "method": "POST", "url": "{{base_url}}/api/whatsapp.php?action=test" } },
+        { "name": "Template Save (admin)", "request": { "method": "POST", "url": "{{base_url}}/api/whatsapp.php?action=template_save" } },
+        { "name": "Send Menu Link (client)", "request": { "method": "POST", "url": "{{base_url}}/api/whatsapp.php?action=send_menu_link" } },
+        {
+          "name": "Inbound Webhook (public)",
+          "request": { "method": "POST", "url": "{{base_url}}/api/whatsapp_webhook.php",
+            "header": [ { "key": "Content-Type", "value": "application/json" } ],
+            "body": { "mode": "raw", "raw": "{ \"api_key\": \"GATEWAY_KEY\", \"number\": \"9876543210\", \"message\": \"MENU\" }" } }
+        }
+      ]
+    },
+    {
+      "name": "Updates",
+      "item": [
+        { "name": "Check for Updates", "request": { "method": "POST", "url": "{{base_url}}/api/update.php?action=check" } },
+        { "name": "Run Update", "request": { "method": "POST", "url": "{{base_url}}/api/update.php?action=run" } },
+        { "name": "Rollback", "request": { "method": "POST", "url": "{{base_url}}/api/update.php?action=rollback" } }
+      ]
+    },
+    {
+      "name": "Standee / Invoice (PDF)",
+      "item": [
+        { "name": "Standee PDF (A4)", "request": { "method": "GET", "url": "{{base_url}}/standee/generate.php?slug={{slug}}&size=A4" } },
+        { "name": "Table QR Standee", "request": { "method": "GET", "url": "{{base_url}}/standee/generate.php?table=tbltoken123" } },
+        { "name": "Invoice PDF (admin)", "request": { "method": "GET", "url": "{{base_url}}/standee/invoice.php?id=1" } }
+      ]
+    }
+  ]
+}

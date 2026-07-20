@@ -1,0 +1,31 @@
+# AK Menu System - root .htaccess (Apache / cPanel)
+
+# ---- Security headers ----
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ---- Disable directory listing ----
+Options -Indexes
+
+# ---- Protect sensitive files ----
+<FilesMatch "\.(sql|lock|json|md|log)$">
+    Require all denied
+</FilesMatch>
+# version.json must remain readable for the update checker
+<Files "version.json">
+    Require all granted
+</Files>
+
+RewriteEngine On
+
+# Force install if not yet installed handled in PHP; here we do clean URLs.
+
+# ---- Public menu clean URL: /r/{slug} ----
+# Directory r/index.php already handles ?slug= via PATH_INFO fallback.
+RewriteRule ^r/([A-Za-z0-9\-]+)/?$ r/index.php?slug=$1 [L,QSA]
+
+# ---- Table QR clean URL: /t/{token} ----
+RewriteRule ^t/([A-Za-z0-9]+)/?$ r/index.php?table=$1 [L,QSA]

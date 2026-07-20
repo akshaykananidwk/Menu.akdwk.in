@@ -1,0 +1,6 @@
+# Block script execution in uploads
+php_flag engine off
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phar|pl|py|cgi|asp|sh)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes

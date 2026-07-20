@@ -1,0 +1,72 @@
+/* AK Menu System - shared styles. CSS variables are injected from DB settings. */
+:root{
+  --primary:#e63946;
+  --secondary:#1d3557;
+  --accent:#f1a208;
+  --sidebar-bg:#1d3557;
+  --sidebar-link:#cdd6e4;
+  --body-bg:#f4f6fb;
+  --card-radius:14px;
+  --font:'Poppins',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+[data-theme="dark"]{
+  --body-bg:#12151c; --sidebar-bg:#0d1117;
+}
+body{font-family:var(--font);background:var(--body-bg);color:#222;}
+[data-theme="dark"] body,[data-theme="dark"]{background:#12151c;color:#e6e6e6;}
+
+.btn-primary{background:var(--primary);border-color:var(--primary);}
+.btn-primary:hover{filter:brightness(.92);background:var(--primary);border-color:var(--primary);}
+.btn-outline-primary{color:var(--primary);border-color:var(--primary);}
+.btn-outline-primary:hover{background:var(--primary);border-color:var(--primary);}
+.text-primary{color:var(--primary)!important;}
+.bg-primary{background:var(--primary)!important;}
+a{color:var(--primary);}
+
+/* ---- Admin / client shell ---- */
+.app-shell{display:flex;min-height:100vh;}
+.sidebar{width:250px;background:var(--sidebar-bg);color:#fff;position:fixed;top:0;bottom:0;left:0;overflow-y:auto;transition:.25s;z-index:1040;}
+.sidebar .brand{padding:18px 20px;font-weight:700;font-size:1.15rem;color:#fff;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar a.nav-link{color:var(--sidebar-link);padding:11px 20px;display:flex;align-items:center;gap:11px;border-left:3px solid transparent;font-size:.94rem;}
+.sidebar a.nav-link:hover,.sidebar a.nav-link.active{color:#fff;background:rgba(255,255,255,.07);border-left-color:var(--accent);}
+.sidebar .nav-section{padding:14px 20px 4px;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4);}
+.content{margin-left:250px;flex:1;min-width:0;}
+.topbar{background:#fff;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;position:sticky;top:0;box-shadow:0 1px 4px rgba(0,0,0,.06);z-index:1030;}
+[data-theme="dark"] .topbar{background:#1a1f2b;}
+.page-wrap{padding:24px;}
+@media(max-width:991px){
+  .sidebar{transform:translateX(-100%);} .sidebar.open{transform:none;}
+  .content{margin-left:0;}
+}
+.sidebar-toggle{border:0;background:transparent;font-size:1.4rem;}
+
+/* ---- Cards / KPI ---- */
+.card{border:0;border-radius:var(--card-radius);box-shadow:0 2px 10px rgba(0,0,0,.05);}
+[data-theme="dark"] .card{background:#1a1f2b;color:#e6e6e6;}
+.kpi-card{padding:20px;border-radius:var(--card-radius);color:#fff;}
+.kpi-card .kpi-val{font-size:1.9rem;font-weight:700;line-height:1;}
+.kpi-card .kpi-label{opacity:.9;font-size:.85rem;}
+.kpi-1{background:linear-gradient(135deg,var(--primary),#ff7b7b);}
+.kpi-2{background:linear-gradient(135deg,var(--secondary),#457b9d);}
+.kpi-3{background:linear-gradient(135deg,var(--accent),#ffcf70);color:#4a3200;}
+.kpi-4{background:linear-gradient(135deg,#2a9d8f,#78d5c9);}
+
+/* ---- Skeleton loader ---- */
+.skeleton{background:linear-gradient(90deg,#eee 25%,#f5f5f5 37%,#eee 63%);background-size:400% 100%;animation:sk 1.4s ease infinite;border-radius:6px;}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+/* ---- Veg/nonveg markers ---- */
+.veg-marker{width:16px;height:16px;border:1.5px solid #2a9d8f;display:inline-flex;align-items:center;justify-content:center;border-radius:3px;}
+.veg-marker::after{content:"";width:8px;height:8px;border-radius:50%;background:#2a9d8f;}
+.veg-marker.nonveg{border-color:#c1121f;}
+.veg-marker.nonveg::after{background:#c1121f;}
+
+/* ---- KOT / kitchen ---- */
+.kot-screen{background:#0d1117;color:#eee;min-height:100vh;}
+.kot-card{background:#1a2130;border-radius:12px;border-left:6px solid var(--accent);}
+.kot-card.late{border-left-color:#c1121f;animation:pulse 1s infinite;}
+@keyframes pulse{50%{box-shadow:0 0 0 4px rgba(193,18,31,.3);}}
+
+/* ---- Empty state ---- */
+.empty-state{text-align:center;padding:48px 20px;color:#8a93a6;}
+.empty-state i{font-size:3rem;opacity:.4;}
