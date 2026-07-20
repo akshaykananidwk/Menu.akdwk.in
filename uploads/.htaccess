@@ -1,6 +1,17 @@
-# Block script execution in uploads
-php_flag engine off
-<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phar|pl|py|cgi|asp|sh)$">
+# Block script execution in /uploads WITHOUT using php_flag.
+# php_flag/php_value in .htaccess causes HTTP 500 on PHP-FPM / suPHP / LiteSpeed
+# (most modern cPanel hosts), which would break serving of QR/menu images.
+# These directives are portable and safe everywhere.
+
+# Deny direct access to any server-side script that might be uploaded.
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phar|pl|py|cgi|asp|aspx|sh|shtml|fcgi)$">
     Require all denied
 </FilesMatch>
-Options -Indexes
+
+# Ensure such files are never handed to an interpreter even if one is mapped.
+<IfModule mod_mime.c>
+    RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .shtml .fcgi
+    RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar
+</IfModule>
+
+Options -Indexes -ExecCGI

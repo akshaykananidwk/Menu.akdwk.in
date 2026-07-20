@@ -598,13 +598,14 @@ function verifyOtp(string $mobile, string $otp, string $purpose = 'login'): bool
 
 /**
  * Call Gemini Vision to extract structured menu JSON from image(s).
+ * Retries automatically on 429 (rate limit / quota) and 503 with backoff.
  * @param array $imagePaths absolute file paths (jpg/png/pdf)
  * @return array{ok:bool, data:array|null, error:string}
  */
 function geminiExtractMenu(array $imagePaths): array {
-    $apiKey = getSetting('gemini_api_key', '');
-    $model  = getSetting('gemini_model', 'gemini-2.0-flash');
-    if (!$apiKey) return ['ok' => false, 'data' => null, 'error' => 'Gemini API key not configured.'];
+    $apiKey = trim((string)getSetting('gemini_api_key', ''));
+    $model  = trim((string)getSetting('gemini_model', 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
+    if (!$apiKey) return ['ok' => false, 'data' => null, 'error' => 'Gemini API key not configured. Add it in Super Admin → Settings → AI.'];
 
     $parts = [[
         'text' => "You are a menu OCR engine. Extract ALL menu items from the image(s). "
@@ -617,35 +618,69 @@ function geminiExtractMenu(array $imagePaths): array {
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file($p);
         $parts[] = ['inline_data' => ['mime_type' => $mime, 'data' => base64_encode(file_get_contents($p))]];
     }
+    if (count($parts) < 2) return ['ok' => false, 'data' => null, 'error' => 'No readable image was uploaded.'];
 
-    $body = [
+    $body = json_encode([
         'contents' => [['parts' => $parts]],
         'generationConfig' => ['temperature' => 0.1, 'response_mime_type' => 'application/json'],
-    ];
+    ]);
     $url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey";
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($body),
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_TIMEOUT        => 90,
-    ]);
-    $resp = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err = curl_error($ch);
-    curl_close($ch);
+    // Retry up to 3 times on transient quota/rate-limit responses.
+    $maxAttempts = 3;
+    $resp = false; $httpCode = 0; $curlErr = ''; $apiMsg = '';
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT        => 120,
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
 
-    if ($resp === false || $httpCode !== 200) {
-        return ['ok' => false, 'data' => null, 'error' => 'Gemini API error: ' . ($err ?: "HTTP $httpCode")];
+        if ($httpCode === 200) break;
+
+        // Pull the human-readable reason + suggested retry delay from the error body.
+        $ej = json_decode((string)$resp, true);
+        $apiMsg = $ej['error']['message'] ?? '';
+        $retryDelay = 0;
+        foreach ($ej['error']['details'] ?? [] as $d) {
+            if (!empty($d['retryDelay']) && preg_match('/(\d+)/', $d['retryDelay'], $m)) { $retryDelay = (int)$m[1]; }
+        }
+        // Only 429 (quota/rate) and 503 (overloaded) are worth retrying.
+        if (in_array($httpCode, [429, 503], true) && $attempt < $maxAttempts) {
+            $wait = $retryDelay > 0 ? min($retryDelay, 30) : (2 * $attempt);
+            sleep($wait);
+            continue;
+        }
+        break;
     }
-    $json = json_decode($resp, true);
+
+    if ($httpCode !== 200) {
+        if ($httpCode === 429) {
+            $hint = $apiMsg ?: 'Free-tier quota or per-minute rate limit reached.';
+            return ['ok' => false, 'data' => null,
+                'error' => 'Gemini quota reached (HTTP 429). ' . $hint
+                . ' Wait a minute and press Retry, or use a different API key / enable billing on your Google AI Studio key.'];
+        }
+        if (in_array($httpCode, [400, 403], true)) {
+            return ['ok' => false, 'data' => null,
+                'error' => 'Gemini rejected the request (HTTP ' . $httpCode . '). ' . ($apiMsg ?: 'Check the API key and model name in Settings.')];
+        }
+        return ['ok' => false, 'data' => null, 'error' => 'Gemini API error: ' . ($apiMsg ?: $curlErr ?: "HTTP $httpCode")];
+    }
+
+    $json = json_decode((string)$resp, true);
     $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
     $text = trim(preg_replace('/^```json|```$/m', '', $text));
     $data = json_decode($text, true);
     if (!$data || empty($data['categories'])) {
-        return ['ok' => false, 'data' => null, 'error' => 'Could not parse menu from image.'];
+        return ['ok' => false, 'data' => null, 'error' => 'Could not read a menu from the image. Try a clearer photo or enter items manually.'];
     }
     return ['ok' => true, 'data' => $data, 'error' => ''];
 }
