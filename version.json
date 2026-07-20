@@ -1,8 +1,9 @@
 {
-    "version": "1.0.5",
+    "version": "1.0.6",
     "released_on": "2026-07-20",
     "min_php": "8.0",
     "changelog": [
+        "Discounts & Coupons: per-restaurant promo codes (flat/percent, min order, max-discount cap, usage limit, expiry) with a customer 'Have a coupon?' box in the cart and server-side re-validation on order placement",
         "Menu scan analytics: per-restaurant daily opens on client & super-admin dashboards",
         "POS-style order flow: owner Orders board simplified to New/Active, Completed and Cancelled",
         "Payment collection: 'Complete & Collect Payment' with Cash / UPI / Card / Bank / Online / Due, cash change calculation",

@@ -8,6 +8,7 @@
  * Contract: JSON {status,message,data}. Multi-tenant isolation everywhere.
  */
 require_once dirname(__DIR__) . '/config/config.php';
+require_once __DIR__ . '/_coupon_lib.php';   // shared coupon evaluation
 header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? '';
@@ -43,6 +44,7 @@ try {
             $custMobile  = preg_replace('/[^0-9]/', '', (string)($body['customer_mobile'] ?? ''));
             $orderType   = in_array($body['order_type'] ?? '', ['dinein', 'takeaway', 'delivery'], true)
                            ? $body['order_type'] : 'dinein';
+            $couponCode  = strtoupper(trim((string)($body['coupon_code'] ?? '')));
             $items       = $body['items'] ?? [];
 
             if (!is_array($items) || count($items) === 0) { jsonError('Your cart is empty.'); }
@@ -135,7 +137,23 @@ try {
             $subtotal = round($subtotal, 2);
             $tax     = round($subtotal * ((float)$tenant['cgst'] + (float)$tenant['sgst']) / 100, 2);
             $service = round($subtotal * (float)$tenant['service_charge'] / 100, 2);
-            $total   = round($subtotal + $tax + $service, 2);
+
+            // --- Coupon: ALWAYS re-validate + recompute server-side (never trust client). ---
+            $discount    = 0.0;
+            $appliedCode = null;
+            $usedCoupon  = null;
+            if ($couponCode !== '') {
+                $cRes = couponEvaluate($tid, $couponCode, $subtotal, $tenant['currency'] ?: '₹');
+                if ($cRes['valid']) {
+                    $discount    = (float)$cRes['discount'];
+                    $appliedCode = $cRes['code'];
+                    $usedCoupon  = $cRes['coupon'];
+                }
+                // Invalid coupon at checkout is ignored silently (order still goes through un-discounted).
+            }
+
+            $total = round($subtotal + $tax + $service - $discount, 2);
+            if ($total < 0) { $total = 0.0; }
 
             // --- Persist order + items. ---
             $orderNo = nextOrderNo($tid);
@@ -150,8 +168,9 @@ try {
                 'subtotal'        => $subtotal,
                 'tax'             => $tax,
                 'service_charge'  => $service,
-                'discount'        => 0,
+                'discount'        => $discount,
                 'total'           => $total,
+                'coupon_code'     => $appliedCode,
                 'payment_mode'    => 'counter',
                 'payment_status'  => 'pending',
                 'status'          => 'new',
@@ -159,6 +178,11 @@ try {
             foreach ($lines as $ln) {
                 $ln['order_id'] = $orderId;
                 db_insert('order_items', $ln);
+            }
+            // Consume one coupon use atomically (only when actually applied).
+            if ($usedCoupon) {
+                db_query('UPDATE ' . tbl('coupons') . ' SET used_count = used_count + 1 WHERE id = :id AND tenant_id = :t',
+                    [':id' => $usedCoupon['id'], ':t' => $tid]);
             }
             // Mark the table occupied for dine-in orders.
             if ($table && $orderType === 'dinein') {

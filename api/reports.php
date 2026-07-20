@@ -59,7 +59,7 @@ try {
         case 'sales': {
             $summary = db_one('SELECT COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue,
                                       COALESCE(SUM(tax),0) AS tax, COALESCE(SUM(service_charge),0) AS service,
-                                      COALESCE(AVG(total),0) AS avg_order
+                                      COALESCE(SUM(discount),0) AS discount, COALESCE(AVG(total),0) AS avg_order
                                FROM ' . tbl('orders') . ' WHERE ' . $dateWhere, $dateParams);
 
             $series = db_all('SELECT DATE(created_at) AS d, COUNT(*) AS orders, COALESCE(SUM(total),0) AS revenue

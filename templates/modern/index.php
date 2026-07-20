@@ -399,6 +399,8 @@ const CURRENCY='<?= e($currency) ?>';
 const TABLE_TOKEN='<?= e($tableToken ?? '') ?>';
 const SLUG='<?= e($tenant['slug']) ?>';
 let cart=[];
+let couponCode='';      // applied promo code (re-validated on every cart open)
+let couponDiscount=0;   // server-computed discount amount
 function money(n){return CURRENCY+Number(n).toFixed(0);}
 function openItem(it){
   let vhtml='';
@@ -432,30 +434,69 @@ function renderCart(){
   document.getElementById('cartTotal').textContent=money(total);
   document.getElementById('cartbar').classList.toggle('show',count>0);
 }
+function cartSubtotal(){return cart.reduce((s,c)=>s+c.qty*c.price,0);}
 function openCart(){
-  if(!cart.length)return;
+  if(!cart.length){couponCode='';couponDiscount=0;return;}
   const rows=cart.map((c,i)=>`<div class="cart-line">
     <div><div class="cn">${c.name}</div><div class="csub">${c.variant?c.variant+' · ':''}${c.qty} × ${money(c.price)}</div></div>
     <div class="d-flex align-items-center gap-2"><b>${money(c.qty*c.price)}</b><button class="cx" onclick="cart.splice(${i},1);renderCart();bsModal.hide();openCart();">×</button></div></div>`).join('');
-  const total=cart.reduce((s,c)=>s+c.qty*c.price,0);
-  const form=`${rows}<div class="totrow"><span>Total</span><span>${money(total)}</span></div>
+  const subtotal=cartSubtotal();
+  const form=`${rows}
+    <div class="totrow"><span>Subtotal</span><span id="cartSub">${money(subtotal)}</span></div>
+    <div class="d-flex gap-2 mt-2">
+      <input id="couponInput" class="fld mb-0 text-uppercase" placeholder="Have a coupon?" value="${couponCode}" style="flex:1">
+      <button type="button" class="btn btn-outline-dark btn-sm px-3" onclick="applyCoupon(false)">Apply</button>
+    </div>
+    <div id="couponMsg" class="small mt-1"></div>
+    <div class="totrow" id="discRow" style="display:none"><span>Discount</span><span id="discAmt" style="color:#1a7f37"></span></div>
+    <div class="totrow" id="grandRow"><span>Total</span><span id="grandTotal">${money(subtotal)}</span></div>
     <div class="mt-3">
     <input id="custName" class="fld" placeholder="<?= __('your_name') ?>">
     <input id="custMobile" class="fld" placeholder="Mobile number" inputmode="numeric">
     <select id="orderType" class="fld">
       <option value="dinein">Dine-in</option><option value="takeaway">Takeaway</option><option value="delivery">Delivery</option></select></div>`;
   showModal('<?= __('cart') ?>',form,placeOrder,'<?= __('place_order') ?>');
+  // Re-validate any previously applied code against the current subtotal.
+  if(couponCode){ applyCoupon(true); }
+}
+function updateCartTotals(){
+  const subtotal=cartSubtotal();
+  const sub=document.getElementById('cartSub'); if(sub) sub.textContent=money(subtotal);
+  const dr=document.getElementById('discRow'), da=document.getElementById('discAmt'), gt=document.getElementById('grandTotal');
+  if(couponDiscount>0){ if(dr) dr.style.display=''; if(da) da.textContent='−'+money(couponDiscount); }
+  else { if(dr) dr.style.display='none'; }
+  const grand=Math.max(0,subtotal-couponDiscount);
+  if(gt) gt.textContent=money(grand);
+}
+function applyCoupon(silent){
+  const inp=document.getElementById('couponInput');
+  const code=(inp?inp.value:couponCode).trim().toUpperCase();
+  const msg=document.getElementById('couponMsg');
+  const subtotal=cartSubtotal();
+  if(!code){ couponCode=''; couponDiscount=0; if(msg) msg.innerHTML=''; updateCartTotals(); return; }
+  fetch('<?= e(BASE_URL) ?>/api/coupon.php?action=apply',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({slug:SLUG,code:code,subtotal:subtotal})})
+    .then(r=>r.json()).then(d=>{
+      if(d.status==='success' && d.data && d.data.valid){
+        couponCode=d.data.code; couponDiscount=Number(d.data.discount)||0;
+        if(msg) msg.innerHTML='<span style="color:#1a7f37">✓ '+(d.data.message||'Coupon applied')+'</span>';
+      } else {
+        couponCode=''; couponDiscount=0;
+        if(msg) msg.innerHTML=silent?'':'<span style="color:#e23744">'+((d.data&&d.data.message)||'Invalid coupon')+'</span>';
+      }
+      updateCartTotals();
+    }).catch(()=>{ if(msg&&!silent) msg.innerHTML='<span style="color:#e23744">Could not check coupon</span>'; });
 }
 function placeOrder(){
   const name=document.getElementById('custName').value.trim();
   if(!name){document.getElementById('custName').focus();document.getElementById('custName').style.borderColor='#e23744';return;}
   const payload={slug:SLUG,table_token:TABLE_TOKEN,customer_name:name,
     customer_mobile:document.getElementById('custMobile').value,order_type:document.getElementById('orderType').value,
-    items:cart};
+    coupon_code:couponCode,items:cart};
   const okb=document.getElementById('modalOk');okb.disabled=true;okb.textContent='Placing…';
   fetch('<?= e(BASE_URL) ?>/api/order.php?action=place',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(r=>r.json()).then(d=>{
-      if(d.status==='success'){bsModal.hide();cart=[];renderCart();
+      if(d.status==='success'){bsModal.hide();cart=[];couponCode='';couponDiscount=0;renderCart();
         showFeedback(d.data.order_id);}
       else{alert(d.message||'Order failed');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';}})
     .catch(()=>{alert('Network error');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';});

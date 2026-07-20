@@ -300,6 +300,7 @@ CREATE TABLE `{PREFIX}orders` (
   `payment_ref` VARCHAR(120) DEFAULT NULL,
   `status` ENUM('new','accepted','preparing','ready','served','completed','cancelled') NOT NULL DEFAULT 'new',
   `notes` VARCHAR(255) DEFAULT NULL,
+  `coupon_code` VARCHAR(40) DEFAULT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -344,6 +345,28 @@ CREATE TABLE `{PREFIX}feedback` (
   PRIMARY KEY (`id`),
   KEY `idx_fb_tenant` (`tenant_id`),
   CONSTRAINT `fk_fb_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `{PREFIX}tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Coupons / Promo codes
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}coupons` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` INT UNSIGNED NOT NULL,
+  `code` VARCHAR(40) NOT NULL,
+  `type` ENUM('flat','percent') NOT NULL DEFAULT 'flat',
+  `value` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `min_order` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `max_discount` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `usage_limit` INT NOT NULL DEFAULT 0,
+  `used_count` INT NOT NULL DEFAULT 0,
+  `expiry_date` DATE DEFAULT NULL,
+  `status` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_coupon_code` (`tenant_id`, `code`),
+  KEY `idx_coupon_tenant` (`tenant_id`),
+  CONSTRAINT `fk_coupon_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `{PREFIX}tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

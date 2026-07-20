@@ -38,7 +38,7 @@ $to   = date('Y-m-d');
   <div class="col-6 col-md-3"><div class="card"><div class="card-body py-3">
     <div class="text-muted small">Avg Order</div><div class="h4 mb-0" id="tAvg">—</div></div></div></div>
   <div class="col-6 col-md-3"><div class="card"><div class="card-body py-3">
-    <div class="text-muted small">Tax + Service</div><div class="h4 mb-0" id="tTax">—</div></div></div></div>
+    <div class="text-muted small">Discounts given</div><div class="h4 mb-0 text-success" id="tDiscount">—</div></div></div></div>
 </div>
 
 <div class="row g-3">
@@ -99,7 +99,7 @@ function load(){
     document.getElementById('tRevenue').textContent = money(s.revenue);
     document.getElementById('tOrders').textContent = s.orders||0;
     document.getElementById('tAvg').textContent = money(s.avg_order);
-    document.getElementById('tTax').textContent = money((+s.tax||0)+(+s.service||0));
+    document.getElementById('tDiscount').textContent = money(s.discount);
     drawSales(d.series||[]);
     drawPay(d.payments||[]);
     renderPayTable(d.payments||[]);

@@ -264,6 +264,7 @@ function openOrder(id){
       <tr><td colspan="2" class="text-end">Subtotal</td><td class="text-end">\${money(o.subtotal)}</td></tr>
       <tr><td colspan="2" class="text-end">Tax</td><td class="text-end">\${money(o.tax)}</td></tr>
       <tr><td colspan="2" class="text-end">Service</td><td class="text-end">\${money(o.service_charge)}</td></tr>
+      \${(+o.discount>0)?`<tr class="text-success"><td colspan="2" class="text-end">Discount\${o.coupon_code?(' ('+esc(o.coupon_code)+')'):''}</td><td class="text-end">−\${money(o.discount)}</td></tr>`:''}
       <tr class="fw-bold"><td colspan="2" class="text-end">Total</td><td class="text-end">\${money(o.total)}</td></tr>
     </tfoot></table>`;
   const foot = document.getElementById('omFooter');
@@ -379,6 +380,7 @@ function printBill(id){
       <tr><td>CGST (\${CFG.cgst}%)</td><td class="r">\${money(o.tax/2)}</td></tr>
       <tr><td>SGST (\${CFG.sgst}%)</td><td class="r">\${money(o.tax/2)}</td></tr>
       <tr><td>Service (\${CFG.svc}%)</td><td class="r">\${money(o.service_charge)}</td></tr>
+      \${(+o.discount>0)?`<tr><td>Discount\${o.coupon_code?(' ('+esc(o.coupon_code)+')'):''}</td><td class="r">−\${money(o.discount)}</td></tr>`:''}
       <tr><td><b>TOTAL</b></td><td class="r"><b>\${money(o.total)}</b></td></tr>
     </table><div class="line"></div>
     <div class="c">Payment: \${isPaid(o)?(payLabel(o.payment_mode)+' — PAID'):'UNPAID (DUE)'}</div>
