@@ -567,7 +567,7 @@ INSERT INTO `{PREFIX}super_admins` (`name`, `email`, `password`, `mobile`, `stat
 
 -- Sample plans
 INSERT INTO `{PREFIX}plans` (`name`, `price`, `validity_days`, `max_items`, `max_categories`, `max_outlets`, `max_waiters`, `max_tables`, `ai_credits`, `features_json`, `status`) VALUES
-('Free Trial', 0.00, 7, 60, 15, 1, 1, 10, 3, '{"direct_ordering":false,"waiter_ordering":false,"kot_screen":false,"payment_gateway":false,"analytics":false,"whatsapp":true,"multi_language":true,"remove_branding":false,"custom_domain":false,"ai_photo":true}', 1),
+('Free Trial', 0.00, 7, 100000, 10000, 50, 100, 500, 50, '{"direct_ordering":true,"waiter_ordering":true,"kot_screen":true,"payment_gateway":true,"analytics":true,"whatsapp":true,"multi_language":true,"remove_branding":false,"custom_domain":true,"ai_photo":true}', 1),
 ('Starter', 999.00, 365, 50, 10, 1, 2, 10, 3, '{"direct_ordering":false,"waiter_ordering":false,"kot_screen":false,"payment_gateway":false,"analytics":false,"whatsapp":true,"multi_language":true,"remove_branding":false,"custom_domain":false,"ai_photo":false}', 1),
 ('Professional', 2499.00, 365, 200, 30, 2, 8, 40, 15, '{"direct_ordering":true,"waiter_ordering":true,"kot_screen":true,"payment_gateway":false,"analytics":true,"whatsapp":true,"multi_language":true,"remove_branding":false,"custom_domain":false,"ai_photo":true}', 1),
 ('Enterprise', 4999.00, 365, 1000, 100, 10, 50, 200, 60, '{"direct_ordering":true,"waiter_ordering":true,"kot_screen":true,"payment_gateway":true,"analytics":true,"whatsapp":true,"multi_language":true,"remove_branding":true,"custom_domain":true,"ai_photo":true}', 1);
