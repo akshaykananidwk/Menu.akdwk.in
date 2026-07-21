@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Allow: /r/
+Allow: /signup.php
+
+# Keep private / non-content areas out of search results
+Disallow: /admin/
+Disallow: /client/
+Disallow: /waiter/
+Disallow: /kitchen/
+Disallow: /api/
+Disallow: /config/
+Disallow: /install/
+Disallow: /cron/
+Disallow: /uploads/qr/
+Disallow: /invoice.php
+
+Sitemap: https://menu.akdwk.in/sitemap.xml

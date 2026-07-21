@@ -29,3 +29,6 @@ RewriteRule ^r/([A-Za-z0-9\-]+)/?$ r/index.php?slug=$1 [L,QSA]
 
 # ---- Table QR clean URL: /t/{token} ----
 RewriteRule ^t/([A-Za-z0-9]+)/?$ r/index.php?table=$1 [L,QSA]
+
+# ---- SEO: serve the dynamic sitemap at /sitemap.xml ----
+RewriteRule ^sitemap\.xml$ sitemap.php [L]

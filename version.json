@@ -1,8 +1,12 @@
 {
-    "version": "1.1.1",
+    "version": "1.2.0",
     "released_on": "2026-07-21",
     "min_php": "8.0",
     "changelog": [
+        "SEO built in: the landing page now has full meta/Open Graph/Twitter tags and SoftwareApplication structured data, each restaurant menu has local-SEO tags, plus a dynamic /sitemap.xml (every live menu) and robots.txt — so your site can rank when people search for a digital/QR menu",
+        "Refer & Earn: every restaurant gets a shareable referral link; when someone they invite buys any plan, the referrer automatically gets bonus days (default 30, configurable). New 'Refer & Earn' page with link, WhatsApp/Facebook share and referral history",
+        "Admin Marketing & Growth page: a ready-to-run Ads Kit (Google keywords + ad copy, Facebook/Instagram ad text in English + Gujarati, WhatsApp broadcast, hashtags) with one-click copy",
+        "Ad-budget tracker: shows total paid revenue and the share you want to reinvest in ads (default 50%, editable) for all-time and this month — so you know exactly how much to spend after each sale",
         "Fixed WhatsApp buttons on the public menu (and support/renew links): numbers are now normalised with the 91 country code in every format, so the chat actually opens",
         "OTP login now shows a clear on-screen confirmation ('OTP sent to your WhatsApp. Valid for 5 minutes.') — earlier nothing appeared",
         "OTP resend has a 30-second countdown on the button plus a server-side 30s cooldown (and the existing max-3-in-5-minutes cap) to avoid repeat sends and control cost",

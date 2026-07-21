@@ -342,6 +342,8 @@ function activatePlanForTenant(int $tenantId, int $planId): bool {
         'expiry_date' => $expiry,
         'status'      => 'active',
     ], ['id' => $tenantId]);
+    // Reward the referrer (once) now that this restaurant has paid for a plan.
+    creditReferralOnActivation($tenantId);
     return true;
 }
 
@@ -386,6 +388,81 @@ function pendingPlanRequests(): int {
         return (int)db_val('SELECT COUNT(*) FROM ' . tbl('plan_requests') . " WHERE status = 'pending'");
     } catch (Throwable $e) {
         return 0;
+    }
+}
+
+// =============================================================================
+// REFER & EARN
+// =============================================================================
+
+/** Bonus days a referrer earns when a referred restaurant activates a paid plan. */
+function referralRewardDays(): int {
+    return max(0, (int)getSetting('referral_reward_days', 30));
+}
+
+/** Get (or lazily generate + store) a tenant's own shareable referral code. */
+function tenantReferralCode(int $tenantId): string {
+    if ($tenantId <= 0) return '';
+    try {
+        $code = db_val('SELECT referral_code FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
+        if ($code) return $code;
+        // Generate a short, unambiguous code and ensure uniqueness.
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        for ($try = 0; $try < 6; $try++) {
+            $c = 'AK';
+            for ($i = 0; $i < 5; $i++) { $c .= $alphabet[random_int(0, strlen($alphabet) - 1)]; }
+            $exists = db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE referral_code = :c', [':c' => $c]);
+            if (!$exists) {
+                db_update('tenants', ['referral_code' => $c], ['id' => $tenantId]);
+                return $c;
+            }
+        }
+    } catch (Throwable $e) { /* column missing pre-migration */ }
+    return '';
+}
+
+/** Resolve a referral code to the referrer tenant id (0 if invalid/self). */
+function referrerIdFromCode(string $code): int {
+    $code = strtoupper(trim($code));
+    if ($code === '') return 0;
+    try {
+        return (int)db_val('SELECT id FROM ' . tbl('tenants') . " WHERE referral_code = :c AND status = 'active' LIMIT 1", [':c' => $code]);
+    } catch (Throwable $e) { return 0; }
+}
+
+/** Public share link a tenant can send to invite other restaurants. */
+function referralLink(int $tenantId): string {
+    $code = tenantReferralCode($tenantId);
+    return $code ? BASE_URL . '/signup.php?ref=' . rawurlencode($code) : BASE_URL . '/signup.php';
+}
+
+/**
+ * Credit the referrer when a referred restaurant activates a PAID plan.
+ * Idempotent: only rewards a 'pending' referral once. Extends the referrer's
+ * expiry by referralRewardDays() and pings them on WhatsApp. Never throws.
+ */
+function creditReferralOnActivation(int $referredTenantId): void {
+    try {
+        $ref = db_one('SELECT * FROM ' . tbl('referrals') . " WHERE referred_id = :r AND status = 'pending' LIMIT 1", [':r' => $referredTenantId]);
+        if (!$ref) return;
+        $days = referralRewardDays();
+        $referrerId = (int)$ref['referrer_id'];
+        if ($days > 0 && $referrerId > 0) {
+            $referrer = db_one('SELECT expiry_date, mobile, whatsapp_no, restaurant_name FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $referrerId]);
+            if ($referrer) {
+                $base = (!empty($referrer['expiry_date']) && $referrer['expiry_date'] >= date('Y-m-d')) ? $referrer['expiry_date'] : date('Y-m-d');
+                $newExpiry = date('Y-m-d', strtotime($base . ' +' . $days . ' days'));
+                db_update('tenants', ['expiry_date' => $newExpiry], ['id' => $referrerId]);
+                $to = $referrer['whatsapp_no'] ?: $referrer['mobile'];
+                if ($to) {
+                    sendWhatsApp($to, "🎉 Referral reward! You earned $days extra days. Your plan is now valid till $newExpiry. Thanks for spreading the word!", null, $referrerId, 'manual');
+                }
+            }
+        }
+        db_update('referrals', ['status' => 'rewarded', 'reward_days' => $days, 'rewarded_at' => date('Y-m-d H:i:s')], ['id' => (int)$ref['id']]);
+        logActivity('tenant', $referrerId, 'Earned referral reward (' . $days . ' days)');
+    } catch (Throwable $e) {
+        error_log('creditReferralOnActivation: ' . $e->getMessage());
     }
 }
 

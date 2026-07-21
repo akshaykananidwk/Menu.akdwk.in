@@ -13,6 +13,13 @@ $siteName = getSetting('site_name', 'AK Menu System');
 $primary  = getSetting('primary_color', '#e63946');
 $secondary= getSetting('secondary_color', '#1d3557');
 $trial    = (int)(db_val('SELECT validity_days FROM ' . tbl('plans') . ' WHERE price = 0 AND status = 1 ORDER BY validity_days ASC LIMIT 1') ?: 7);
+// If arriving via a referral link, greet them with the referrer's name.
+$refCode  = trim((string)($_GET['ref'] ?? ''));
+$refBy    = '';
+if ($refCode !== '') {
+    $rid = referrerIdFromCode($refCode);
+    if ($rid) { $refBy = (string)db_val('SELECT restaurant_name FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $rid]); }
+}
 ?>
 <!doctype html>
 <html lang="en">
@@ -52,10 +59,16 @@ body{font-family:'Poppins','Noto Sans Gujarati',system-ui,sans-serif;background:
       <div class="small opacity-90">Create your restaurant's digital QR menu — <b><?= $trial ?> days free</b> 🎉</div>
     </div>
     <div class="card-body p-4">
+      <?php if ($refBy !== ''): ?>
+        <div class="alert alert-success d-flex align-items-center gap-2 py-2 small mb-3">
+          <i class="bi bi-gift-fill"></i> <div>Invited by <strong><?= e($refBy) ?></strong> — sign up and enjoy your free trial! 🎉</div>
+        </div>
+      <?php endif; ?>
       <div class="stepdots"><span class="on" data-dot="1"></span><span data-dot="2"></span><span data-dot="3"></span></div>
 
       <form id="signupForm" enctype="multipart/form-data" novalidate>
         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+        <input type="hidden" name="ref" value="<?= e(trim((string)($_GET['ref'] ?? ''))) ?>">
         <!-- honeypot -->
         <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
 

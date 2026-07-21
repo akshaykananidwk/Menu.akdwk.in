@@ -97,6 +97,24 @@ $tenantId = db_insert('tenants', [
 recordFailedLogin('signup:' . $ip); // count this signup toward the IP throttle
 logActivity('tenant', $tenantId, 'Self sign-up (' . $slug . ')');
 
+// ---- Refer & Earn: link this signup to its referrer (rewarded on paid plan) --
+tenantReferralCode($tenantId); // give the new restaurant its own share code
+$refCode = trim((string)($_POST['ref'] ?? ''));
+if ($refCode !== '') {
+    $referrerId = referrerIdFromCode($refCode);
+    if ($referrerId && $referrerId !== $tenantId) {
+        try {
+            db_update('tenants', ['referred_by' => $referrerId], ['id' => $tenantId]);
+            db_insert('referrals', [
+                'referrer_id' => $referrerId,
+                'referred_id' => $tenantId,
+                'status'      => 'pending',
+            ]);
+            logActivity('tenant', $referrerId, 'Referred a new signup (#' . $tenantId . ')');
+        } catch (Throwable $e) { error_log('referral link failed: ' . $e->getMessage()); }
+    }
+}
+
 // ---- Handle uploaded menu files + AI extraction -----------------------------
 $aiOk = false; $aiError = ''; $catCount = 0; $itemCount = 0;
 $paths = [];

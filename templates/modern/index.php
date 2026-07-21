@@ -31,13 +31,22 @@ $itemCount = 0; foreach ($categories as $c) { $itemCount += count($c['items']); 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="<?= e($primary) ?>">
-<title><?= e($tenant['restaurant_name']) ?> — Menu</title>
-<meta name="description" content="<?= e($tenant['restaurant_name']) ?> digital menu. <?= e($tenant['address']) ?>">
+<title><?= e($tenant['restaurant_name']) ?> — Menu<?= $tenant['city'] ? ', ' . e($tenant['city']) : '' ?></title>
+<meta name="description" content="View the digital menu of <?= e($tenant['restaurant_name']) ?><?= $tenant['city'] ? ', ' . e($tenant['city']) : '' ?>. Browse dishes with prices and order online. <?= e($tenant['address']) ?>">
+<meta name="keywords" content="<?= e($tenant['restaurant_name']) ?>, <?= e($tenant['restaurant_name']) ?> menu, <?= $tenant['city'] ? e($tenant['city']) . ' restaurant, ' : '' ?>online menu, order online, digital menu">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="<?= e($menuUrl) ?>">
 <!-- Open Graph -->
 <meta property="og:type" content="restaurant.menu">
+<meta property="og:site_name" content="<?= e($tenant['restaurant_name']) ?>">
 <meta property="og:title" content="<?= e($tenant['restaurant_name']) ?> — Menu">
+<meta property="og:description" content="Browse the menu &amp; order online from <?= e($tenant['restaurant_name']) ?>.">
 <meta property="og:url" content="<?= e($menuUrl) ?>">
-<?php if ($logoUrl): ?><meta property="og:image" content="<?= e($logoUrl) ?>"><?php endif; ?>
+<?php if ($logoUrl): ?><meta property="og:image" content="<?= e($logoUrl) ?>"><meta name="twitter:image" content="<?= e($logoUrl) ?>"><?php endif; ?>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= e($tenant['restaurant_name']) ?> — Menu">
+<meta name="twitter:description" content="Browse the menu &amp; order online from <?= e($tenant['restaurant_name']) ?>.">
+<meta property="og:locale" content="en_IN">
 <link rel="manifest" href="<?= e(BASE_URL) ?>/r/manifest.php?slug=<?= e($tenant['slug']) ?>">
 <link rel="icon" href="<?= e($logoUrl ?: BASE_URL.'/assets/img/favicon.png') ?>">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">

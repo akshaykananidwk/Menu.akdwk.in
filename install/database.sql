@@ -116,6 +116,8 @@ CREATE TABLE `{PREFIX}tenants` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `restaurant_name` VARCHAR(160) NOT NULL,
   `slug` VARCHAR(120) NOT NULL,
+  `referral_code` VARCHAR(12) DEFAULT NULL,
+  `referred_by` INT UNSIGNED DEFAULT NULL,
   `owner_name` VARCHAR(120) DEFAULT NULL,
   `mobile` VARCHAR(20) DEFAULT NULL,
   `email` VARCHAR(160) DEFAULT NULL,
@@ -407,6 +409,22 @@ CREATE TABLE `{PREFIX}plan_requests` (
   KEY `idx_pr_tenant` (`tenant_id`),
   KEY `idx_pr_status` (`status`),
   CONSTRAINT `fk_pr_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `{PREFIX}tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Referrals (Refer & Earn)
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}referrals` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `referrer_id` INT UNSIGNED NOT NULL,
+  `referred_id` INT UNSIGNED NOT NULL,
+  `status` ENUM('pending','rewarded') NOT NULL DEFAULT 'pending',
+  `reward_days` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `rewarded_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_referred` (`referred_id`),
+  KEY `idx_ref_referrer` (`referrer_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

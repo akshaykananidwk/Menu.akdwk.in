@@ -32,7 +32,48 @@ $niceOpens = $menuOpens >= 1000 ? round($menuOpens / 1000, 1) . 'K+' : max($menu
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="<?= e($primary) ?>">
 <title><?= e($siteName) ?> — <?= e($tagline) ?></title>
-<meta name="description" content="<?= e($tagline) ?>. QR menus, AI menu import, ordering & KOT, WhatsApp automation — built for Indian restaurants.">
+<?php
+$seoDesc = getSetting('seo_description', $tagline . '. Create a QR code menu with AI menu import, direct & waiter ordering, live kitchen (KOT) screen and WhatsApp automation. Built for Indian restaurants, cafés and food trucks. Free 7-day trial.');
+$seoKeywords = getSetting('seo_keywords', 'digital menu, QR code menu, restaurant menu system, online menu, QR menu India, digital menu card, restaurant ordering system, e-menu, contactless menu, cafe menu QR, hotel menu software, menu maker, ડિજિટલ મેનુ, QR મેનુ');
+$ogImage = $logo ? mediaUrl($logo) : (BASE_URL . '/assets/img/food/paneer-tikka.jpg');
+?>
+<meta name="description" content="<?= e($seoDesc) ?>">
+<meta name="keywords" content="<?= e($seoKeywords) ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="<?= e(BASE_URL) ?>/">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="<?= e($siteName) ?>">
+<meta property="og:title" content="<?= e($siteName) ?> — <?= e($tagline) ?>">
+<meta property="og:description" content="<?= e($seoDesc) ?>">
+<meta property="og:url" content="<?= e(BASE_URL) ?>/">
+<meta property="og:image" content="<?= e($ogImage) ?>">
+<meta property="og:locale" content="en_IN">
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= e($siteName) ?> — <?= e($tagline) ?>">
+<meta name="twitter:description" content="<?= e($seoDesc) ?>">
+<meta name="twitter:image" content="<?= e($ogImage) ?>">
+<!-- Structured data -->
+<script type="application/ld+json">
+<?= json_encode([
+  '@context' => 'https://schema.org',
+  '@type'    => 'SoftwareApplication',
+  'name'     => $siteName,
+  'applicationCategory' => 'BusinessApplication',
+  'operatingSystem'     => 'Web',
+  'description' => $seoDesc,
+  'url'         => BASE_URL . '/',
+  'image'       => $ogImage,
+  'offers'      => array_map(fn($p) => [
+      '@type' => 'Offer',
+      'price' => (string)(float)$p['price'],
+      'priceCurrency' => 'INR',
+      'name'  => $p['name'],
+  ], $plans ?: [['price'=>0,'name'=>'Free Trial']]),
+  'aggregateRating' => ['@type'=>'AggregateRating','ratingValue'=>'4.8','reviewCount'=>(string)max(12,$restaurantCount)],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+</script>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">

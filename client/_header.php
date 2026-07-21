@@ -61,6 +61,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <?= cnav('reports',$activeNav,'/client/reports.php','bi-graph-up','Reports',$canOrder) ?>
       <div class="nav-section">Account</div>
       <?= cnav('plans',$activeNav,'/client/plans.php','bi-gem','Plans & Billing') ?>
+      <?= cnav('referrals',$activeNav,'/client/referrals.php','bi-gift','Refer & Earn') ?>
       <?= cnav('whatsapp',$activeNav,'/client/whatsapp.php','bi-whatsapp','WhatsApp') ?>
       <?= cnav('settings',$activeNav,'/client/settings.php','bi-gear','Settings') ?>
       <a class="nav-link" href="<?= e(BASE_URL) ?>/client/logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
