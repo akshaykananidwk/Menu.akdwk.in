@@ -389,6 +389,27 @@ CREATE TABLE `{PREFIX}invoices` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
+-- Plan Requests (client subscription upgrade/renewal requests)
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}plan_requests` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` INT UNSIGNED NOT NULL,
+  `plan_id` INT UNSIGNED NOT NULL,
+  `amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `method` ENUM('offline','online') NOT NULL DEFAULT 'offline',
+  `txn_ref` VARCHAR(120) DEFAULT NULL,
+  `screenshot` VARCHAR(255) DEFAULT NULL,
+  `status` ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `note` VARCHAR(255) DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `processed_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_pr_tenant` (`tenant_id`),
+  KEY `idx_pr_status` (`status`),
+  CONSTRAINT `fk_pr_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `{PREFIX}tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- Support Tickets
 -- ------------------------------------------------------------
 CREATE TABLE `{PREFIX}tickets` (

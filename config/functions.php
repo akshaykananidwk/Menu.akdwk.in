@@ -313,6 +313,83 @@ function checkPlanLimit(int $tenantId, string $type): array {
 }
 
 // =============================================================================
+// SUBSCRIPTION / PLAN PURCHASE
+// =============================================================================
+
+/**
+ * Activate (or renew) a subscription plan for a tenant.
+ * Sets plan_id, start_date = today and expiry_date = base + validity_days, and
+ * reactivates the account. When the tenant already has an unexpired subscription,
+ * the new validity is stacked on top of the remaining days (a true renewal) so
+ * paying early never loses time. Used by admin approval and online payment.
+ */
+function activatePlanForTenant(int $tenantId, int $planId): bool {
+    $plan = db_one('SELECT validity_days FROM ' . tbl('plans') . ' WHERE id = :id AND status = 1', [':id' => $planId]);
+    if (!$plan) return false;
+    $days   = max(1, (int)$plan['validity_days']);
+    $today  = date('Y-m-d');
+    $tenant = db_one('SELECT plan_id, expiry_date FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
+    // Extend from the current expiry when renewing the SAME plan and it's still valid.
+    $base = $today;
+    if ($tenant && (int)$tenant['plan_id'] === $planId
+        && !empty($tenant['expiry_date']) && $tenant['expiry_date'] >= $today) {
+        $base = $tenant['expiry_date'];
+    }
+    $expiry = date('Y-m-d', strtotime($base . ' +' . $days . ' days'));
+    db_update('tenants', [
+        'plan_id'     => $planId,
+        'start_date'  => $today,
+        'expiry_date' => $expiry,
+        'status'      => 'active',
+    ], ['id' => $tenantId]);
+    return true;
+}
+
+/** Whether online (Razorpay) checkout is fully configured. */
+function razorpayEnabled(): bool {
+    return trim((string)getSetting('razorpay_key_id', '')) !== ''
+        && trim((string)getSetting('razorpay_secret', '')) !== '';
+}
+
+/**
+ * Platform UPI / manual-payment config used for offline subscription payments.
+ * Falls back to the owner's default GPay number so it works out of the box.
+ */
+function platformUpi(): array {
+    $number = trim((string)getSetting('upi_number', '9978123146'));
+    return [
+        'number'   => $number,
+        'id'       => trim((string)getSetting('upi_id', '')),
+        'name'     => trim((string)getSetting('upi_payee_name', getSetting('site_name', 'AK Menu System'))),
+        'whatsapp' => preg_replace('/\D/', '', (string)getWaSetting('support_number', getSetting('support_whatsapp', $number))),
+    ];
+}
+
+/** Build a UPI deep-link (upi://pay?...) for a given amount. Empty if no VPA/number. */
+function upiPayLink(float $amount, string $note = 'Subscription'): string {
+    $cfg = platformUpi();
+    $pa  = $cfg['id'] !== '' ? $cfg['id'] : '';
+    if ($pa === '') return '';   // a bare mobile number is not a valid UPI address
+    $q = http_build_query([
+        'pa' => $pa,
+        'pn' => $cfg['name'] ?: 'AK Menu System',
+        'am' => number_format($amount, 2, '.', ''),
+        'cu' => 'INR',
+        'tn' => $note,
+    ]);
+    return 'upi://pay?' . $q;
+}
+
+/** Count of pending subscription upgrade requests (for the admin badge). */
+function pendingPlanRequests(): int {
+    try {
+        return (int)db_val('SELECT COUNT(*) FROM ' . tbl('plan_requests') . " WHERE status = 'pending'");
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+// =============================================================================
 // FILE UPLOADS
 // =============================================================================
 

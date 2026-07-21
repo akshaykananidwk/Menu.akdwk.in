@@ -48,6 +48,7 @@ define('SESSION_TIMEOUT', 3600 * 4); // 4 hours idle
 define('MAX_LOGIN_ATTEMPTS', 5);
 define('LOGIN_LOCK_MINUTES', 15);
 define('POWERED_BY', 'Powered by AK Computer, Dwarka');
+define('INVOICE_TAX_RATE', 18.0); // GST % applied to subscription invoices
 
 date_default_timezone_set(DEFAULT_TIMEZONE);
 

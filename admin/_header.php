@@ -56,6 +56,11 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('notices',$activeNav,'/admin/notices.php','bi-pin-angle','Notice Board') ?>
       <?= nav_item('tickets',$activeNav,'/admin/tickets.php','bi-life-preserver','Support Tickets') ?>
       <div class="nav-section">Finance</div>
+      <?php $prPending = pendingPlanRequests(); ?>
+      <a class="nav-link <?= $activeNav === 'plan_requests' ? 'active' : '' ?>" href="<?= e(BASE_URL) ?>/admin/plan_requests.php">
+        <i class="bi bi-cart-check"></i> Plan Requests
+        <?php if ($prPending > 0): ?><span class="badge bg-danger ms-1"><?= $prPending ?></span><?php endif; ?>
+      </a>
       <?= nav_item('invoices',$activeNav,'/admin/invoices.php','bi-receipt','Invoices') ?>
       <?= nav_item('ai_report',$activeNav,'/admin/ai_report.php','bi-cpu','AI Usage') ?>
       <div class="nav-section">System</div>

@@ -60,6 +60,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <?= cnav('feedback',$activeNav,'/client/feedback.php','bi-star','Feedback') ?>
       <?= cnav('reports',$activeNav,'/client/reports.php','bi-graph-up','Reports',$canOrder) ?>
       <div class="nav-section">Account</div>
+      <?= cnav('plans',$activeNav,'/client/plans.php','bi-gem','Plans & Billing') ?>
       <?= cnav('whatsapp',$activeNav,'/client/whatsapp.php','bi-whatsapp','WhatsApp') ?>
       <?= cnav('settings',$activeNav,'/client/settings.php','bi-gear','Settings') ?>
       <a class="nav-link" href="<?= e(BASE_URL) ?>/client/logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
@@ -82,7 +83,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <h6 class="mb-0 fw-semibold"><?= e($pageTitle) ?></h6>
       <div class="d-flex align-items-center gap-3">
         <a href="<?= e(publicMenuUrl($tenant['slug'])) ?>" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View Menu</a>
-        <span class="badge bg-secondary"><?= e($plan['name'] ?? 'No plan') ?></span>
+        <a href="<?= e(BASE_URL) ?>/client/plans.php" class="badge bg-secondary text-decoration-none" title="View plans & upgrade"><i class="bi bi-gem"></i> <?= e($plan['name'] ?? 'No plan') ?></a>
         <div class="dropdown">
           <a class="dropdown-toggle text-decoration-none text-dark" data-bs-toggle="dropdown" href="#"><i class="bi bi-person-circle fs-5"></i></a>
           <ul class="dropdown-menu dropdown-menu-end">

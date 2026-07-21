@@ -10,7 +10,7 @@ require_once dirname(__DIR__) . '/config/config.php';
 requireAdmin();
 
 // GST rate (%) applied to plan price when generating an invoice.
-define('INVOICE_TAX_RATE', 18.0);
+defined('INVOICE_TAX_RATE') || define('INVOICE_TAX_RATE', 18.0);
 
 // ---- POST handler -----------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

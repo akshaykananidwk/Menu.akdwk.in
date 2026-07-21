@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'gemini_api_key', 'gemini_model', 'gemini_monthly_limit', 'ai_cost_per_call',
         // Payments
         'razorpay_key_id', 'razorpay_secret',
+        'upi_id', 'upi_number', 'upi_payee_name',
         // Localization
         'currency', 'timezone', 'date_format', 'default_language',
         // Legal
@@ -231,6 +232,27 @@ require __DIR__ . '/_header.php';
 
       <!-- Payments -->
       <div class="tab-pane fade" id="tab-payments">
+        <h6 class="fw-semibold mb-2"><i class="bi bi-phone"></i> Manual / UPI (offline) — used for subscription payments</h6>
+        <p class="text-muted small mb-3">Clients who pay by GPay/UPI see this. If you leave Razorpay blank, only this offline option is shown on the client Plans page.</p>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">UPI Number (GPay/PhonePe)</label>
+            <input name="upi_number" class="form-control" value="<?= e($v('upi_number', '9978123146')) ?>" placeholder="9978123146">
+            <div class="form-text">Clients GPay here &amp; send the screenshot on WhatsApp.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">UPI ID / VPA (optional)</label>
+            <input name="upi_id" class="form-control" value="<?= e($v('upi_id')) ?>" placeholder="name@okhdfcbank">
+            <div class="form-text">Enables a scan-to-pay UPI QR with the exact amount.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Payee Name</label>
+            <input name="upi_payee_name" class="form-control" value="<?= e($v('upi_payee_name', $v('site_name'))) ?>">
+          </div>
+        </div>
+        <hr class="my-4">
+        <h6 class="fw-semibold mb-2"><i class="bi bi-credit-card"></i> Razorpay (online) — optional</h6>
+        <p class="text-muted small mb-3">Fill both fields to let clients pay online and get activated instantly.</p>
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Razorpay Key ID</label>

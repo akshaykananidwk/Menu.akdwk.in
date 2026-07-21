@@ -1,8 +1,13 @@
 {
-    "version": "1.0.7",
-    "released_on": "2026-07-20",
+    "version": "1.0.8",
+    "released_on": "2026-07-21",
     "min_php": "8.0",
     "changelog": [
+        "Plans & Billing for logged-in clients: a new page shows the current plan (with expiry / days left) and every available plan, clearly marking the one you're on",
+        "Buy or renew a plan from inside the panel with payment: online via Razorpay (auto-activates instantly) when configured, otherwise offline via UPI/GPay with a scan-to-pay QR and a 'send screenshot to WhatsApp' flow",
+        "Super Admin → Plan Requests: approve offline payments to activate/renew a restaurant's plan (marks the invoice paid and WhatsApps the client), or reject; a badge shows pending requests",
+        "Settings → Payments: set the UPI number (default 9978123146), UPI ID and payee name for offline subscription payments; Razorpay stays optional for online",
+        "Renewing the same plan early now stacks the new validity on remaining days instead of losing time",
         "Menu scan counting made robust: counts every real menu open even before the analytics migration has run (the daily-views table is auto-created on first open)",
         "Device-based dedup: one device counts once per day (resets next morning at 4am) so refreshes and repeat opens don't inflate the number; owner/super-admin previews are never counted",
         "Discounts & Coupons: per-restaurant promo codes (flat/percent, min order, max-discount cap, usage limit, expiry) with a customer 'Have a coupon?' box in the cart and server-side re-validation on order placement",
