@@ -111,12 +111,8 @@ require __DIR__ . '/_header.php';
                     title="<?= $r['status'] === 'paid' ? 'Mark unpaid' : 'Mark paid' ?>">
               <i class="bi bi-<?= $r['status'] === 'paid' ? 'x-circle' : 'check-circle' ?>"></i>
             </button>
-            <?php if ($pdfExists): ?>
-              <a class="btn btn-sm btn-outline-primary" target="_blank"
-                 href="<?= e(BASE_URL . '/standee/invoice.php?id=' . (int)$r['id']) ?>" title="Download PDF"><i class="bi bi-file-earmark-pdf"></i></a>
-            <?php else: ?>
-              <button class="btn btn-sm btn-outline-secondary" disabled title="PDF generator not installed"><i class="bi bi-file-earmark-pdf"></i></button>
-            <?php endif; ?>
+            <a class="btn btn-sm btn-outline-primary" target="_blank"
+               href="<?= e(BASE_URL . '/invoice.php?id=' . (int)$r['id']) ?>" title="View / print invoice"><i class="bi bi-receipt"></i></a>
             <button class="btn btn-sm btn-outline-danger" onclick="delInv(<?= (int)$r['id'] ?>)"><i class="bi bi-trash"></i></button>
           </td>
         </tr>

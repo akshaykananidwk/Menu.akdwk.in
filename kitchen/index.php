@@ -45,14 +45,37 @@ body{margin:0}
 <div id="grid" class="kot-grid"></div>
 <div id="empty" class="text-center text-secondary py-5" style="display:none"><i class="bi bi-check2-circle" style="font-size:3rem"></i><p>No active tickets. All caught up!</p></div>
 
-<audio id="ding" preload="auto" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"></audio>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <?php $base = BASE_URL; $csrf = csrfToken(); ?>
 <script>
 const B='<?= e($base) ?>', CSRF='<?= e($csrf) ?>';
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lastMaxId=0, firstLoad=true;
+
+// ---- Sound + Hindi voice alert ----
+let audioCtx=null;
+function unlockAudio(){
+  try{ if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();} if(audioCtx.state==='suspended')audioCtx.resume(); }catch(e){}
+  if(window.speechSynthesis){ try{ speechSynthesis.getVoices(); const u=new SpeechSynthesisUtterance(''); u.volume=0; speechSynthesis.speak(u); }catch(e){} }
+}
+['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev, unlockAudio, {once:true}));
+function playChime(){
+  if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;} }
+  try{ if(audioCtx.state==='suspended')audioCtx.resume(); const now=audioCtx.currentTime;
+    [[880,0],[1320,.18]].forEach(([f,t])=>{ const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,now+t);g.gain.linearRampToValueAtTime(.35,now+t+.02);
+      g.gain.exponentialRampToValueAtTime(.001,now+t+.35);o.connect(g);g.connect(audioCtx.destination);o.start(now+t);o.stop(now+t+.36); });
+  }catch(e){}
+}
+function speakHindi(text){
+  if(!window.speechSynthesis) return;
+  try{ const u=new SpeechSynthesisUtterance(text); const vs=speechSynthesis.getVoices()||[];
+    const v=vs.find(x=>/hi[-_]?IN/i.test(x.lang))||vs.find(x=>/^hi/i.test(x.lang));
+    if(v){u.voice=v;u.lang=v.lang;}else{u.lang='hi-IN';} u.rate=.95;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+function orderAlert(){ playChime(); setTimeout(()=>speakHindi('रसोई में एक नया ऑर्डर आया है, कृपया देख लीजिए।'),550); }
 
 // Next status per current status (kitchen flow).
 const NEXT={new:'accepted', accepted:'preparing', preparing:'ready'};
@@ -87,7 +110,7 @@ function poll(){
       const orders=(res.data.orders||[]).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
       const maxId=orders.reduce((m,o)=>Math.max(m,+o.id),0);
       if(!firstLoad && maxId>lastMaxId && document.getElementById('soundToggle').checked){
-        try{ document.getElementById('ding').play(); }catch(e){}
+        orderAlert();
       }
       lastMaxId=Math.max(lastMaxId,maxId); firstLoad=false;
       document.getElementById('grid').innerHTML=orders.map(cardHtml).join('');

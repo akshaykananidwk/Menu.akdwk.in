@@ -28,6 +28,13 @@ try {
     $pending = null; // table not migrated yet — treat as no pending request
 }
 
+// Billing history (best-effort — never break the page).
+try {
+    $invoices = db_all('SELECT i.*, p.name AS plan_name FROM ' . tbl('invoices') . ' i
+                        LEFT JOIN ' . tbl('plans') . ' p ON p.id = i.plan_id
+                        WHERE i.tenant_id = :t ORDER BY i.id DESC LIMIT 24', [':t' => $tid]);
+} catch (Throwable $e) { $invoices = []; }
+
 // Expiry maths for the status banner.
 $expiry   = $tenant['expiry_date'] ?: null;
 $daysLeft = $expiry ? (int)floor((strtotime($expiry) - strtotime($today)) / 86400) : null;
@@ -176,6 +183,39 @@ if ($upi['id'] !== '') {
   </div>
   <?php endforeach; ?>
 </div>
+
+<?php if ($invoices): ?>
+<h5 class="fw-semibold mt-5 mb-3"><i class="bi bi-receipt"></i> Billing history</h5>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Invoice</th><th>Plan</th><th>Date</th><th>Amount</th><th>Status</th><th class="text-end">Invoice</th></tr>
+      </thead>
+      <tbody>
+      <?php foreach ($invoices as $iv): ?>
+        <tr>
+          <td class="fw-semibold"><?= e($iv['invoice_no']) ?></td>
+          <td><?= e($iv['plan_name'] ?? '—') ?></td>
+          <td class="small text-muted"><?= e(date('d M Y', strtotime($iv['created_at']))) ?></td>
+          <td class="fw-semibold"><?= $money((float)$iv['total']) ?></td>
+          <td>
+            <?= $iv['status'] === 'paid'
+              ? '<span class="badge bg-success-subtle text-success">Paid</span>'
+              : '<span class="badge bg-warning-subtle text-warning">Unpaid</span>' ?>
+          </td>
+          <td class="text-end">
+            <a href="<?= e(BASE_URL) ?>/invoice.php?id=<?= (int)$iv['id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-download"></i> Download
+            </a>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- Payment modal -->
 <div class="modal fade" id="payModal" tabindex="-1">

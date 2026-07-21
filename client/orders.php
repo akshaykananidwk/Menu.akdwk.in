@@ -133,8 +133,6 @@ $currency = $tenant['currency'] ?: '₹';
   </div>
 </div></div>
 
-<audio id="dingSound" preload="auto" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"></audio>
-
 <?php
 $cfg = json_encode([
   'base'     => BASE_URL,
@@ -231,15 +229,66 @@ function poll(){
   });
 }
 
+// ---- Sound + Hindi voice alert ----------------------------------------------
+let audioCtx = null, voicesReady = false;
+function unlockAudio(){
+  try{
+    if(!audioCtx){ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+  // Warm up the speech engine within a user gesture so later calls are allowed.
+  if(window.speechSynthesis && !voicesReady){
+    try{ speechSynthesis.getVoices(); const u=new SpeechSynthesisUtterance(''); u.volume=0; speechSynthesis.speak(u); voicesReady=true; }catch(e){}
+  }
+}
+// Any interaction unlocks audio (browsers block autoplay until a gesture).
+['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev, unlockAudio, {once:true}));
+
+// Pleasant two-tone chime via Web Audio (no external file needed).
+function playChime(){
+  if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; } }
+  try{
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const now=audioCtx.currentTime;
+    [[880,0],[1320,.18]].forEach(([f,t])=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0, now+t);
+      g.gain.linearRampToValueAtTime(.35, now+t+.02);
+      g.gain.exponentialRampToValueAtTime(.001, now+t+.35);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(now+t); o.stop(now+t+.36);
+    });
+  }catch(e){}
+}
+function pickHindiVoice(){
+  if(!window.speechSynthesis) return null;
+  const vs = speechSynthesis.getVoices()||[];
+  return vs.find(v=>/hi[-_]?IN/i.test(v.lang)) || vs.find(v=>/^hi/i.test(v.lang)) || null;
+}
+function speakHindi(text){
+  if(!window.speechSynthesis) return;
+  try{
+    const u=new SpeechSynthesisUtterance(text);
+    const v=pickHindiVoice();
+    if(v){ u.voice=v; u.lang=v.lang; } else { u.lang='hi-IN'; }
+    u.rate=.95; u.pitch=1; u.volume=1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
 function notifyNew(o){
   if(document.getElementById('soundToggle').checked){
-    try{ document.getElementById('dingSound').play(); }catch(e){}
+    playChime();
+    // Speak a short Hindi announcement shortly after the chime.
+    setTimeout(()=>speakHindi('आपके यहाँ एक नया ऑर्डर आया है, प्लीज़ देख लीजिए।'), 550);
   }
   AK.toast('info','New order #'+(o?o.order_no:''));
   if(window.Notification && Notification.permission==='granted' && o){
     new Notification('New order #'+o.order_no, {body:(o.table_no?'Table '+o.table_no+' · ':'')+money(o.total)});
   }
 }
+if(window.speechSynthesis){ speechSynthesis.onvoiceschanged = ()=>{}; }
 
 // ---- Detail modal ----
 let omModal;
@@ -418,7 +467,13 @@ document.getElementById('hReset').addEventListener('click', ()=>{
   document.getElementById('hStatus').value=''; renderHistory();
 });
 document.getElementById('notifyBtn').addEventListener('click', ()=>{
+  unlockAudio();
   if(window.Notification) Notification.requestPermission().then(()=>AK.toast('success','Alerts enabled'));
+});
+// Toggling sound ON plays a quick test so the owner knows it works.
+document.getElementById('soundToggle').addEventListener('change', function(){
+  if(this.checked){ unlockAudio(); playChime(); setTimeout(()=>speakHindi('साउंड चालू है।'),500); }
+  else if(window.speechSynthesis){ speechSynthesis.cancel(); }
 });
 
 poll();

@@ -103,10 +103,14 @@ require __DIR__ . '/_header.php';
           <input type="hidden" name="form" value="settings">
           <div class="card-header bg-white fw-semibold"><i class="bi bi-whatsapp text-success"></i> Gateway Configuration</div>
           <div class="card-body">
-            <div class="form-check form-switch mb-3">
+            <div class="form-check form-switch mb-1">
               <input class="form-check-input" type="checkbox" role="switch" id="waEnabled" name="enabled" value="1" <?= $wa('enabled','1')==='1'?'checked':'' ?>>
-              <label class="form-check-label" for="waEnabled">WhatsApp sending enabled</label>
+              <label class="form-check-label fw-semibold" for="waEnabled">WhatsApp sending enabled</label>
             </div>
+            <p class="text-muted small mb-3">
+              Master switch. Turn this <strong>off</strong> to stop <em>all</em> WhatsApp messages — order alerts, welcome, reminders, everything.
+              Nothing is queued or sent while it's off (no pending pile-up).
+            </p>
             <div class="row g-3">
               <div class="col-md-12">
                 <label class="form-label">Gateway Base URL</label>

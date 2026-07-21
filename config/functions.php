@@ -561,6 +561,11 @@ function formatWaNumber(string $number): ?string {
  * @return int the whatsapp_logs id
  */
 function sendWhatsApp(string $number, string $message, ?string $mediaUrl = null, ?int $tenantId = null, string $triggerKey = 'manual', bool $immediate = false): int {
+    // Global kill switch — when WhatsApp is turned off in the admin panel, nothing
+    // is queued or sent (orders, notifications, everything). No "pending" pile-up.
+    if (getWaSetting('enabled', '1') !== '1') {
+        return 0;
+    }
     $formatted = formatWaNumber($number);
     $logId = db_insert('whatsapp_logs', [
         'tenant_id'  => $tenantId,

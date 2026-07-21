@@ -1,8 +1,12 @@
 {
-    "version": "1.0.8",
+    "version": "1.0.9",
     "released_on": "2026-07-21",
     "min_php": "8.0",
     "changelog": [
+        "Brand-new landing page: modern, mobile-first marketing site with animated hero, live restaurant/scan stats, feature grid, how-it-works, live pricing and a WhatsApp chat button",
+        "WhatsApp master switch now truly stops everything: turning it off in Admin → WhatsApp sends nothing (orders, welcome, reminders) and never queues 'pending' messages",
+        "New-order voice alert: the Orders board and Kitchen screen now play a chime and speak a short Hindi announcement ('आपके यहाँ एक नया ऑर्डर आया है, प्लीज़ देख लीजिए') when a new order arrives and sound is on",
+        "Colorful, print-ready invoice: every subscription payment gets a polished invoice (gradient header, PAID stamp, GST breakdown) — download it from client Plans → Billing history or Admin → Invoices",
         "Plans & Billing for logged-in clients: a new page shows the current plan (with expiry / days left) and every available plan, clearly marking the one you're on",
         "Buy or renew a plan from inside the panel with payment: online via Razorpay (auto-activates instantly) when configured, otherwise offline via UPI/GPay with a scan-to-pay QR and a 'send screenshot to WhatsApp' flow",
         "Super Admin → Plan Requests: approve offline payments to activate/renew a restaurant's plan (marks the invoice paid and WhatsApps the client), or reject; a badge shows pending requests",
