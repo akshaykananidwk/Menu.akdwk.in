@@ -76,22 +76,56 @@ a{text-decoration:none}
 .trust .n{font-size:1.5rem;font-weight:800}
 .trust .l{font-size:.8rem;opacity:.8}
 
-/* ---- Phone mockup ---- */
-.phone{width:270px;max-width:78vw;margin:0 auto;background:#0b1220;border-radius:38px;padding:12px;box-shadow:0 40px 80px -20px rgba(0,0,0,.5),0 0 0 2px rgba(255,255,255,.08);transform:rotate(2deg)}
-.phone .scr{background:#fff;border-radius:28px;overflow:hidden;color:var(--ink)}
-.phone .top{height:150px;background:linear-gradient(135deg,var(--p),var(--a));position:relative}
-.phone .top .rn{position:absolute;left:14px;bottom:12px;color:#fff;font-weight:700}
-.phone .notch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:90px;height:6px;border-radius:6px;background:rgba(255,255,255,.5)}
+/* ---- Animated hero scene: person presenting a live phone ---- */
+.scene{position:relative;width:100%;max-width:460px;margin:0 auto;height:440px;perspective:1200px;animation:sceneIn 1s cubic-bezier(.2,.8,.2,1) both}
+.scene .blob{position:absolute;inset:6% 4% 4% 6%;border-radius:46% 54% 52% 48%/48% 46% 54% 52%;background:radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.28), transparent 60%),linear-gradient(135deg,color-mix(in srgb,var(--a) 85%,#fff),color-mix(in srgb,var(--p) 75%,#000));filter:blur(2px);opacity:.55;animation:blobm 9s ease-in-out infinite}
+.person{position:absolute;left:-6%;bottom:0;width:210px;height:auto;z-index:2;filter:drop-shadow(0 24px 30px rgba(0,0,0,.25));animation:sway 6s ease-in-out infinite}
+.float-food{position:absolute;font-size:1.7rem;z-index:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
+.float-food.f1{top:6%;right:16%;animation:floaty 5s ease-in-out infinite}
+.float-food.f2{top:24%;right:2%;animation:floaty 6.5s ease-in-out infinite .6s}
+.float-food.f3{bottom:20%;left:2%;animation:floaty 5.8s ease-in-out infinite .3s}
+.float-food.f4{top:44%;right:20%;font-size:1.3rem;animation:floaty 7s ease-in-out infinite .9s}
+
+.phone{position:absolute;right:2%;top:50%;width:236px;transform:translateY(-50%) rotate(-4deg);transform-style:preserve-3d;z-index:3;background:#0b1220;border-radius:34px;padding:11px;box-shadow:0 44px 80px -22px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.08);animation:phoneFloat 5.5s ease-in-out infinite}
+.phone .scr{background:#fff;border-radius:26px;overflow:hidden;color:var(--ink);position:relative}
+.phone .top{height:120px;background:linear-gradient(135deg,var(--p),var(--a));position:relative}
+.phone .top .rn{position:absolute;left:14px;bottom:12px;color:#fff;font-weight:700;font-size:.85rem}
+.phone .notch{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:82px;height:6px;border-radius:6px;background:rgba(255,255,255,.5)}
 .phone .cats{display:flex;gap:6px;padding:10px 12px;overflow:hidden}
-.phone .cats span{font-size:.62rem;padding:.2rem .55rem;border-radius:999px;background:var(--soft);white-space:nowrap}
+.phone .cats span{font-size:.6rem;padding:.2rem .55rem;border-radius:999px;background:var(--soft);white-space:nowrap;transition:.3s}
 .phone .cats span.on{background:var(--p);color:#fff}
-.phone .it{display:flex;gap:8px;padding:8px 12px;align-items:center}
-.phone .it .th{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,#eef1f7,#e3e8f2);flex:0 0 auto}
+.phone .cats span.c2{animation:catcycle 8s infinite}
+.phone .cats span.c1{animation:catcycle2 8s infinite}
+.phone .it{display:flex;gap:8px;padding:7px 12px;align-items:center;opacity:0;animation:itemIn .6s ease forwards}
+.phone .it:nth-child(1){animation-delay:.3s}
+.phone .it:nth-child(2){animation-delay:.55s}
+.phone .it:nth-child(3){animation-delay:.8s}
+.phone .it:nth-child(4){animation-delay:1.05s}
+.phone .it .th{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#ffe3c2,#ffd0a1);flex:0 0 auto;display:grid;place-items:center;font-size:1rem}
 .phone .it .g{flex:1}
-.phone .it .g .a{height:8px;width:60%;background:#e9edf5;border-radius:4px}
-.phone .it .g .b{height:7px;width:38%;background:#f1f4f9;border-radius:4px;margin-top:5px}
-.phone .it .pr{font-size:.7rem;font-weight:700;color:var(--p)}
-.phone .bar{margin:8px 12px 12px;background:var(--s);color:#fff;border-radius:12px;padding:.5rem;text-align:center;font-size:.72rem;font-weight:600}
+.phone .it .g .a{height:8px;width:62%;background:#e9edf5;border-radius:4px}
+.phone .it .g .b{height:7px;width:40%;background:#f1f4f9;border-radius:4px;margin-top:5px}
+.phone .it .pr{font-size:.68rem;font-weight:700;color:var(--p)}
+.phone .bar{position:relative;margin:8px 12px 12px;background:var(--s);color:#fff;border-radius:12px;padding:.5rem;text-align:center;font-size:.72rem;font-weight:600;overflow:hidden}
+.phone .bar .ripple{position:absolute;top:50%;left:50%;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.6);transform:translate(-50%,-50%) scale(0);animation:tap 6s ease-out infinite}
+.phone .tap-dot{position:absolute;z-index:5;right:26px;bottom:24px;width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.9);background:rgba(255,255,255,.25);animation:tapDot 6s ease-in-out infinite;pointer-events:none}
+.phone .placed{position:absolute;inset:0;background:linear-gradient(135deg,rgba(16,185,129,.96),rgba(5,150,105,.96));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;opacity:0;animation:placed 6s ease-in-out infinite}
+.phone .placed .chk{width:52px;height:52px;border-radius:50%;background:#fff;color:#059669;display:grid;place-items:center;font-size:1.6rem}
+.cart-badge{position:absolute;top:-8px;right:-8px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--a);color:#111;font-size:.72rem;font-weight:800;display:grid;place-items:center;box-shadow:0 4px 10px rgba(0,0,0,.25);animation:cartpop 6s ease-in-out infinite}
+
+@keyframes sceneIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes phoneFloat{0%,100%{transform:translateY(-50%) rotate(-4deg)}50%{transform:translateY(-58%) rotate(-1deg)}}
+@keyframes sway{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1.5deg)}}
+@keyframes blobm{0%,100%{border-radius:46% 54% 52% 48%/48% 46% 54% 52%;transform:rotate(0)}50%{border-radius:54% 46% 48% 52%/52% 54% 46% 48%;transform:rotate(8deg)}}
+@keyframes floaty{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-16px) rotate(6deg)}}
+@keyframes itemIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes tap{0%,55%{transform:translate(-50%,-50%) scale(0);opacity:.7}70%{transform:translate(-50%,-50%) scale(9);opacity:0}100%{opacity:0}}
+@keyframes tapDot{0%,52%{transform:translateY(0) scale(1);opacity:0}56%{opacity:1}60%{transform:translateY(6px) scale(.8);opacity:1}66%,100%{transform:translateY(0) scale(1);opacity:0}}
+@keyframes placed{0%,68%{opacity:0;transform:scale(1.04)}76%,92%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.04)}}
+@keyframes cartpop{0%,30%{transform:scale(0);opacity:0}40%{transform:scale(1.25);opacity:1}50%,66%{transform:scale(1);opacity:1}74%,100%{transform:scale(0);opacity:0}}
+@keyframes catcycle{0%,40%{background:var(--p);color:#fff}50%,100%{background:var(--soft);color:inherit}}
+@keyframes catcycle2{0%,40%{background:var(--soft);color:inherit}50%,100%{background:var(--p);color:#fff}}
+@media(prefers-reduced-motion:reduce){.scene,.person,.phone,.float-food,.blob,.phone .it,.phone .placed,.tap-dot,.cart-badge,.phone .bar .ripple{animation:none!important}.phone .it{opacity:1}}
 
 /* ---- Sections ---- */
 section{padding:70px 0}
@@ -175,14 +209,55 @@ footer a{color:#cbd5e1}
         </div>
       </div>
       <div class="col-lg-6">
-        <div class="phone">
-          <div class="scr">
-            <div class="top"><span class="notch"></span><span class="rn"><i class="bi bi-shop"></i> <?= e($siteName) ?></span></div>
-            <div class="cats"><span class="on">Starters</span><span>Main Course</span><span>Breads</span><span>Drinks</span></div>
-            <?php for ($i=0;$i<4;$i++): ?>
-            <div class="it"><div class="th"></div><div class="g"><div class="a"></div><div class="b"></div></div><div class="pr"><?= e($curr) ?><?= [120,240,60,90][$i] ?></div></div>
-            <?php endfor; ?>
-            <div class="bar"><i class="bi bi-bag-check"></i> Add to Order · <?= e($curr) ?>510</div>
+        <div class="scene">
+          <div class="blob"></div>
+          <span class="float-food f1">🍔</span>
+          <span class="float-food f2">🍕</span>
+          <span class="float-food f3">🥤</span>
+          <span class="float-food f4">🍩</span>
+
+          <!-- Illustrated person presenting the phone -->
+          <svg class="person" viewBox="0 0 240 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="var(--p)"/><stop offset="1" stop-color="var(--s)"/>
+              </linearGradient>
+            </defs>
+            <!-- shoulders / torso -->
+            <path d="M18 330 Q18 208 120 208 Q222 208 222 330 Z" fill="url(#shirt)"/>
+            <!-- collar -->
+            <path d="M92 214 Q120 240 148 214 L148 208 L92 208 Z" fill="rgba(255,255,255,.18)"/>
+            <!-- neck -->
+            <rect x="102" y="150" width="36" height="56" rx="18" fill="#e7ac82"/>
+            <!-- head -->
+            <circle cx="120" cy="118" r="50" fill="#f4c19a"/>
+            <!-- ears -->
+            <circle cx="72" cy="120" r="9" fill="#f4c19a"/><circle cx="168" cy="120" r="9" fill="#f4c19a"/>
+            <!-- hair -->
+            <path d="M68 122 Q64 58 120 56 Q176 58 172 122 Q172 96 156 92 Q150 74 120 74 Q90 74 84 92 Q68 98 68 122 Z" fill="#2b2b3a"/>
+            <!-- eyes + brows + smile -->
+            <circle cx="103" cy="116" r="4.6" fill="#2b2b3a"/><circle cx="137" cy="116" r="4.6" fill="#2b2b3a"/>
+            <path d="M95 106 Q103 101 111 106" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M129 106 Q137 101 145 106" stroke="#2b2b3a" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M106 134 Q120 148 134 134" stroke="#c47a50" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <!-- extended arm + open hand toward the phone (right) -->
+            <path d="M196 250 Q236 226 236 176 Q236 158 214 158 Q206 210 168 226 Z" fill="url(#shirt)"/>
+            <path d="M224 150 q22 -4 24 14 q2 16 -14 22 q-18 6 -26 -8 q-6 -14 6 -22 Z" fill="#f4c19a"/>
+          </svg>
+
+          <!-- Live phone -->
+          <div class="phone">
+            <span class="cart-badge">3</span>
+            <div class="scr">
+              <div class="tap-dot"></div>
+              <div class="top"><span class="notch"></span><span class="rn"><i class="bi bi-shop"></i> <?= e($siteName) ?></span></div>
+              <div class="cats"><span class="c1 on">Starters</span><span class="c2">Main Course</span><span>Breads</span><span>Drinks</span></div>
+              <?php $emoji=['🍲','🍛','🍗','🥗']; for ($i=0;$i<4;$i++): ?>
+              <div class="it"><div class="th"><?= $emoji[$i] ?></div><div class="g"><div class="a"></div><div class="b"></div></div><div class="pr"><?= e($curr) ?><?= [120,240,60,90][$i] ?></div></div>
+              <?php endfor; ?>
+              <div class="bar"><span class="ripple"></span><i class="bi bi-bag-check"></i> Add to Order · <?= e($curr) ?>510</div>
+              <div class="placed"><div class="chk"><i class="bi bi-check-lg"></i></div><div style="font-weight:800">Order placed!</div><div style="font-size:.7rem;opacity:.9">Sent to the kitchen 🔔</div></div>
+            </div>
           </div>
         </div>
       </div>

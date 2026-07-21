@@ -68,7 +68,7 @@ body{font-family:'Poppins','Noto Sans Gujarati',system-ui,sans-serif;background:
             <div class="col-md-6"><label class="form-label">Owner Name *</label>
               <input name="owner_name" class="form-control" required></div>
             <div class="col-md-6"><label class="form-label">Mobile (WhatsApp) *</label>
-              <input name="mobile" class="form-control" inputmode="numeric" maxlength="10" placeholder="10-digit" required></div>
+              <input name="mobile" class="form-control" inputmode="tel" maxlength="18" placeholder="e.g. 9876543210 or +91 98765 43210" required></div>
             <div class="col-md-6"><label class="form-label">Email</label>
               <input name="email" type="email" class="form-control"></div>
             <div class="col-md-6"><label class="form-label">City</label>

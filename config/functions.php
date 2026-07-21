@@ -546,11 +546,23 @@ function currentLang(): string {
  * Returns null if it cannot be validated.
  */
 function formatWaNumber(string $number): ?string {
-    $n = preg_replace('/[\s+\-]/', '', $number);
+    // Keep digits only — tolerate spaces, +, -, (), dots, unicode separators, etc.
+    $n = preg_replace('/\D+/', '', $number);
+    if ($n === '') return null;
+    // Drop an international access prefix like 00 (e.g. "0091 98765 43210").
+    if (strncmp($n, '00', 2) === 0) { $n = substr($n, 2); }
+    // Already country-coded Indian mobile: 91 + 10-digit (6-9) — accept as-is.
+    if (preg_match('/^91[6-9]\d{9}$/', $n)) { return $n; }
+    // Strip a local trunk "0" prefix (e.g. "0 9876543210").
     $n = ltrim($n, '0');
-    if (preg_match('/^\d{10}$/', $n)) { $n = '91' . $n; }
-    if (preg_match('/^91\d{10}$/', $n)) { return $n; }
-    return preg_match('/^\d{11,15}$/', $n) ? $n : null;
+    if (preg_match('/^91[6-9]\d{9}$/', $n)) { return $n; }
+    // Bare 10-digit Indian mobile — add the country code.
+    if (preg_match('/^[6-9]\d{9}$/', $n)) { return '91' . $n; }
+    // Any other 10-digit number — still route via India's code.
+    if (preg_match('/^\d{10}$/', $n)) { return '91' . $n; }
+    // Any other plausible international number (11-15 digits) — send as typed.
+    if (preg_match('/^\d{11,15}$/', $n)) { return $n; }
+    return null;
 }
 
 /**

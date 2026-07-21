@@ -29,6 +29,11 @@ if ($hp !== '' && preg_match('#https?://|www\.#i', $hp)) { jsonError('Spam detec
 $name  = trim($_POST['restaurant_name'] ?? '');
 $owner = trim($_POST['owner_name'] ?? '');
 $mobile= preg_replace('/[^0-9]/', '', $_POST['mobile'] ?? '');
+// Accept any format the user typed (+91, 0091, leading 0, spaces) and reduce it
+// to the bare 10-digit Indian mobile used as the login identity.
+if (strncmp($mobile, '0091', 4) === 0)                       { $mobile = substr($mobile, 4); }
+if (strlen($mobile) === 12 && strncmp($mobile, '91', 2) === 0) { $mobile = substr($mobile, 2); }
+$mobile = ltrim($mobile, '0');
 $email = trim($_POST['email'] ?? '');
 $city  = trim($_POST['city'] ?? '');
 $pass  = $_POST['password'] ?? '';
@@ -51,15 +56,24 @@ if ($email !== '' && db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE e
 }
 
 // ---- Pick the trial plan ----------------------------------------------------
-$plan = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE price = 0 AND status = 1 ORDER BY validity_days ASC LIMIT 1')
-     ?? db_one('SELECT * FROM ' . tbl('plans') . ' WHERE status = 1 ORDER BY price ASC LIMIT 1');
+// Every self-signup gets the FREE, unlimited trial plan. Among free plans, prefer
+// the most generous (highest item limit) so new users always get the unlimited one.
+$plan = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE price = 0 AND status = 1 ORDER BY max_items DESC, validity_days DESC LIMIT 1');
+$isFreeTrial = (bool)$plan;
+if (!$plan) {
+    // No free plan configured — fall back to any active plan (but keep the trial short below).
+    $plan = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE status = 1 ORDER BY price ASC LIMIT 1');
+}
 if (!$plan) { jsonError('No signup plan is configured. Please contact support.', 500); }
-$validity = max(1, (int)$plan['validity_days']);
+// Trial length = the free plan's own validity (7 days in the default install). If we
+// had to fall back to a paid plan, cap it to 7 days so a paid plan is never given away.
+$validity = $isFreeTrial ? max(1, (int)$plan['validity_days']) : 7;
 
 // ---- Create the tenant ------------------------------------------------------
 $slug       = makeSlug($name);
 $defaultTpl = (int)(db_val('SELECT id FROM ' . tbl('templates') . ' WHERE is_default = 1 AND status = 1 LIMIT 1') ?: 0);
-$ordering   = getSetting('signup_default_ordering', 'view_only');
+// Unlimited trial → give the full experience (direct customer ordering) by default.
+$ordering   = getSetting('signup_default_ordering', 'direct');
 $ordering   = in_array($ordering, ['direct', 'waiter', 'view_only'], true) ? $ordering : 'view_only';
 
 $tenantId = db_insert('tenants', [

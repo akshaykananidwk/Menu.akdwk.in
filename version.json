@@ -1,9 +1,11 @@
 {
-    "version": "1.0.9",
+    "version": "1.1.0",
     "released_on": "2026-07-21",
     "min_php": "8.0",
     "changelog": [
-        "Brand-new landing page: modern, mobile-first marketing site with animated hero, live restaurant/scan stats, feature grid, how-it-works, live pricing and a WhatsApp chat button",
+        "Animated hero on the landing page: an illustrated person presents a live phone that browses the menu, taps 'Add to Order' and shows an 'Order placed!' confirmation on a loop — with floating food, a cart badge and a gentle float",
+        "Signup always grants the free, unlimited 7-day trial (never a paid plan's long validity) and enables direct ordering so new users get the full experience",
+        "WhatsApp numbers are now accepted in any format — spaces, +91, 0091, leading 0, dashes, brackets — and normalised to a clean Indian number so the message always sends; the signup mobile field accepts these too",
         "WhatsApp master switch now truly stops everything: turning it off in Admin → WhatsApp sends nothing (orders, welcome, reminders) and never queues 'pending' messages",
         "New-order voice alert: the Orders board and Kitchen screen now play a chime and speak a short Hindi announcement ('आपके यहाँ एक नया ऑर्डर आया है, प्लीज़ देख लीजिए') when a new order arrives and sound is on",
         "Colorful, print-ready invoice: every subscription payment gets a polished invoice (gradient header, PAID stamp, GST breakdown) — download it from client Plans → Billing history or Admin → Invoices",
