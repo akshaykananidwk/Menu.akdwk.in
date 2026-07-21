@@ -566,6 +566,27 @@ function formatWaNumber(string $number): ?string {
 }
 
 /**
+ * Build a working https://wa.me/ link for any stored number (adds the country
+ * code, tolerates +91 / spaces / leading 0). Returns '' when the number is unusable.
+ */
+function waMeUrl(?string $number, string $text = ''): string {
+    $n = $number !== null ? formatWaNumber($number) : null;
+    if (!$n) return '';
+    return 'https://wa.me/' . $n . ($text !== '' ? '?text=' . rawurlencode($text) : '');
+}
+
+/**
+ * Reduce any typed mobile to the canonical bare 10-digit local number used as the
+ * login/lookup key (accepts +91, 0091, leading 0, spaces, dashes).
+ */
+function normalizeMobile(string $raw): string {
+    $n = preg_replace('/\D+/', '', $raw);
+    if (strncmp($n, '0091', 4) === 0) { $n = substr($n, 4); }
+    if (strlen($n) === 12 && strncmp($n, '91', 2) === 0) { $n = substr($n, 2); }
+    return ltrim($n, '0');
+}
+
+/**
  * Queue (or immediately send) a WhatsApp message via the gateway.
  * Non-blocking by default: inserts a 'pending' log row for the cron worker.
  *
@@ -702,6 +723,17 @@ function renderPlaceholders(string $tpl, array $vars): string {
 // =============================================================================
 // OTP
 // =============================================================================
+
+/**
+ * Seconds since the most recent OTP was issued to this mobile for a purpose,
+ * or null if none exists. Used to enforce a resend cooldown (cost control).
+ */
+function otpSecondsSinceLast(string $mobile, string $purpose = 'login'): ?int {
+    $last = db_val('SELECT created_at FROM ' . tbl('otp_verifications') . '
+                    WHERE mobile = :m AND purpose = :p ORDER BY id DESC LIMIT 1',
+                    [':m' => $mobile, ':p' => $purpose]);
+    return $last ? max(0, time() - strtotime($last)) : null;
+}
 
 /** Generate + store a 6-digit OTP and send via WhatsApp. */
 function generateOtp(string $mobile, string $purpose = 'login'): string {

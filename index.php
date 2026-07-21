@@ -12,7 +12,7 @@ $primary   = getSetting('primary_color', '#e63946');
 $secondary = getSetting('secondary_color', '#1d3557');
 $accent    = getSetting('accent_color', '#f1a208');
 $logo      = getSetting('logo', '');
-$waSupport = preg_replace('/\D/', '', (string)getWaSetting('support_number', getSetting('support_whatsapp', '')));
+$waSupport = formatWaNumber((string)getWaSetting('support_number', getSetting('support_whatsapp', ''))) ?? '';
 
 // Live social proof + pricing (best-effort; page must never break).
 try { $restaurantCount = (int)db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . " WHERE status = 'active'"); } catch (Throwable $e) { $restaurantCount = 0; }

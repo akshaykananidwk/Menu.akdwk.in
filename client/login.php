@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = __('account_locked');
     } elseif ($mode === 'otp') {
         $otp = trim($_POST['otp'] ?? '');
+        $login = normalizeMobile($login); // match how the OTP was sent/stored
         $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE mobile = :m', [':m' => $login]);
         if ($tenant && verifyOtp($login, $otp, 'login')) {
             doClientLogin($tenant, $ident);
@@ -65,11 +66,13 @@ $siteName = getSetting('site_name', 'AK Menu System');
     </div>
     <div class="tab-pane fade" id="otp">
       <form method="post"><?= csrfField() ?><input type="hidden" name="mode" value="otp">
-        <div class="mb-3"><label class="form-label">Registered Mobile</label>
-          <div class="input-group"><input name="login" id="otpMobile" class="form-control" required>
-            <button type="button" class="btn btn-outline-danger" onclick="sendOtp()">Send OTP</button></div></div>
-        <div class="mb-3"><label class="form-label">OTP</label><input name="otp" class="form-control" required></div>
-        <button class="btn btn-danger w-100">Verify & Login</button></form>
+        <div class="mb-2"><label class="form-label">Registered Mobile</label>
+          <div class="input-group"><input name="login" id="otpMobile" class="form-control" inputmode="tel" placeholder="10-digit mobile" required>
+            <button type="button" class="btn btn-outline-danger" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button></div></div>
+        <div id="otpMsg" class="small mb-2" style="display:none"></div>
+        <div class="mb-3"><label class="form-label">Enter OTP</label>
+          <input name="otp" class="form-control text-center" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" required></div>
+        <button class="btn btn-danger w-100">Verify &amp; Login</button></form>
     </div>
   </div>
   <div class="text-center mt-3 pt-2 border-top">
@@ -80,7 +83,39 @@ $siteName = getSetting('site_name', 'AK Menu System');
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?= e(BASE_URL) ?>/assets/js/app.js"></script>
 <script>
-function sendOtp(){const m=document.getElementById('otpMobile').value;if(!m){alert('Enter mobile');return;}
-  AK.post('<?= e(BASE_URL) ?>/api/auth.php?action=send_otp',{mobile:m}).then(r=>AK.handle(r));}
+const otpBtn = document.getElementById('sendOtpBtn');
+const otpMsg = document.getElementById('otpMsg');
+let otpTimer = null;
+
+function showOtpMsg(text, ok){
+  otpMsg.style.display = 'block';
+  otpMsg.className = 'small mb-2 alert py-2 ' + (ok ? 'alert-success' : 'alert-danger');
+  otpMsg.innerHTML = (ok ? '<i class="bi bi-check-circle"></i> ' : '<i class="bi bi-exclamation-circle"></i> ') + text;
+}
+function startCooldown(sec){
+  let left = sec;
+  otpBtn.disabled = true;
+  const tick = () => {
+    otpBtn.textContent = 'Resend in ' + left + 's';
+    if(left-- <= 0){ clearInterval(otpTimer); otpBtn.disabled = false; otpBtn.textContent = 'Resend OTP'; }
+  };
+  tick(); otpTimer = setInterval(tick, 1000);
+}
+function sendOtp(){
+  const m = (document.getElementById('otpMobile').value || '').trim();
+  if(!m){ showOtpMsg('Please enter your registered mobile number.', false); return; }
+  otpBtn.disabled = true; otpBtn.textContent = 'Sending…';
+  AK.post('<?= e(BASE_URL) ?>/api/auth.php?action=send_otp', {mobile:m}).then(r=>{
+    if(r && r.status === 'success'){
+      showOtpMsg((r.message || 'OTP sent to your WhatsApp.'), true);
+      startCooldown((r.data && r.data.cooldown) ? r.data.cooldown : 30);
+    } else {
+      showOtpMsg((r && r.message) || 'Could not send OTP. Please try again.', false);
+      // If the server returned a cooldown (429), respect it; else re-enable.
+      if(r && r.data && r.data.cooldown){ startCooldown(r.data.cooldown); }
+      else { otpBtn.disabled = false; otpBtn.textContent = 'Send OTP'; }
+    }
+  }).catch(()=>{ showOtpMsg('Network error. Please try again.', false); otpBtn.disabled = false; otpBtn.textContent = 'Send OTP'; });
+}
 </script>
 </body></html>

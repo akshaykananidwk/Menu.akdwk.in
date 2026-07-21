@@ -1,8 +1,12 @@
 {
-    "version": "1.1.0",
+    "version": "1.1.1",
     "released_on": "2026-07-21",
     "min_php": "8.0",
     "changelog": [
+        "Fixed WhatsApp buttons on the public menu (and support/renew links): numbers are now normalised with the 91 country code in every format, so the chat actually opens",
+        "OTP login now shows a clear on-screen confirmation ('OTP sent to your WhatsApp. Valid for 5 minutes.') — earlier nothing appeared",
+        "OTP resend has a 30-second countdown on the button plus a server-side 30s cooldown (and the existing max-3-in-5-minutes cap) to avoid repeat sends and control cost",
+        "OTP login accepts the mobile in any format (+91 / 0 / spaces) and matches it reliably",
         "Animated hero on the landing page: an illustrated person presents a live phone that browses the menu, taps 'Add to Order' and shows an 'Order placed!' confirmation on a loop — with floating food, a cart badge and a gentle float",
         "Signup always grants the free, unlimited 7-day trial (never a paid plan's long validity) and enables direct ordering so new users get the full experience",
         "WhatsApp numbers are now accepted in any format — spaces, +91, 0091, leading 0, dashes, brackets — and normalised to a clean Indian number so the message always sends; the signup mobile field accepts these too",

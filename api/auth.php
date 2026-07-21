@@ -48,14 +48,21 @@ try {
         // send_otp — generate + WhatsApp a login OTP (PUBLIC)
         // -----------------------------------------------------------------
         case 'send_otp': {
-            $mobile = reqStr('mobile');
-            if ($mobile === '' || !preg_match('/\d{10}/', $mobile)) {
-                jsonError('Please enter a valid mobile number.');
+            // Accept any typed format (+91 / 0 / spaces) — normalise to 10 digits.
+            $mobile = normalizeMobile(reqStr('mobile'));
+            if (!preg_match('/^[6-9]\d{9}$/', $mobile)) {
+                jsonError('Please enter a valid 10-digit mobile number.');
             }
 
-            // Rate limit per number (max 3 in 5 min).
+            // Resend cooldown: at least 30s between OTPs to the same number (cost control).
+            $since = otpSecondsSinceLast($mobile, 'login');
+            if ($since !== null && $since < 30) {
+                $wait = 30 - $since;
+                jsonError("Please wait {$wait}s before requesting another OTP.", 429, ['cooldown' => $wait]);
+            }
+            // Hard cap: max 3 OTPs in 5 minutes.
             if (otpRateLimited($mobile, 'login')) {
-                jsonError('Too many OTP requests. Please wait a few minutes and try again.', 429);
+                jsonError('Too many OTP requests. Please wait a few minutes and try again.', 429, ['cooldown' => 30]);
             }
 
             // Only actually send when a tenant with this mobile exists — but always
@@ -70,19 +77,24 @@ try {
                     error_log('send_otp dispatch failed: ' . $e->getMessage());
                 }
             }
-            jsonSuccess('OTP sent. Please check your WhatsApp.');
+            jsonSuccess('OTP sent to your WhatsApp. It is valid for 5 minutes.', ['cooldown' => 30]);
         }
 
         // -----------------------------------------------------------------
         // password_reset_otp — generate + WhatsApp a reset OTP (PUBLIC)
         // -----------------------------------------------------------------
         case 'password_reset_otp': {
-            $mobile = reqStr('mobile');
-            if ($mobile === '' || !preg_match('/\d{10}/', $mobile)) {
-                jsonError('Please enter a valid mobile number.');
+            $mobile = normalizeMobile(reqStr('mobile'));
+            if (!preg_match('/^[6-9]\d{9}$/', $mobile)) {
+                jsonError('Please enter a valid 10-digit mobile number.');
+            }
+            $since = otpSecondsSinceLast($mobile, 'reset');
+            if ($since !== null && $since < 30) {
+                $wait = 30 - $since;
+                jsonError("Please wait {$wait}s before requesting another OTP.", 429, ['cooldown' => $wait]);
             }
             if (otpRateLimited($mobile, 'reset')) {
-                jsonError('Too many OTP requests. Please wait a few minutes and try again.', 429);
+                jsonError('Too many OTP requests. Please wait a few minutes and try again.', 429, ['cooldown' => 30]);
             }
             $tenant = db_one('SELECT id FROM ' . tbl('tenants') . ' WHERE mobile = :m', [':m' => $mobile]);
             if ($tenant) {
@@ -100,7 +112,7 @@ try {
         // client/login.php verifies server-side, but this supports AJAX flows.
         // -----------------------------------------------------------------
         case 'verify_otp': {
-            $mobile  = reqStr('mobile');
+            $mobile  = normalizeMobile(reqStr('mobile'));
             $otp     = reqStr('otp');
             $purpose = reqStr('purpose', 'login');
             if (!in_array($purpose, ['login', 'reset'], true)) { $purpose = 'login'; }

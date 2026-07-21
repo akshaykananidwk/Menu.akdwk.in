@@ -70,7 +70,7 @@ $waSupport = getWaSetting('support_number', getSetting('support_mobile', ''));
   <?php endif; ?>
 
   <?php if ($waSupport): ?>
-    <a href="https://wa.me/<?= e(preg_replace('/\D/', '', $waSupport)) ?>?text=<?= rawurlencode('Hi, I want to renew my plan for ' . $tenant['restaurant_name']) ?>" target="_blank" class="btn btn-outline-success w-100 mt-2"><i class="bi bi-whatsapp"></i> Chat with Support</a>
+    <a href="<?= e(waMeUrl($waSupport, 'Hi, I want to renew my plan for ' . $tenant['restaurant_name'])) ?>" target="_blank" class="btn btn-outline-success w-100 mt-2"><i class="bi bi-whatsapp"></i> Chat with Support</a>
   <?php endif; ?>
 
   <a href="<?= e(BASE_URL) ?>/client/logout.php" class="btn btn-link mt-2 text-muted">Logout</a>

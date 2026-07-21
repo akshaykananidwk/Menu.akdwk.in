@@ -243,7 +243,7 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
   <?php if ($tenant['mobile'] || $tenant['whatsapp_no'] || $tenant['maps_url'] || $tenant['google_review_url']): ?>
   <div class="act-row">
     <?php if ($tenant['mobile']): ?><a class="act" href="tel:<?= e($tenant['mobile']) ?>"><i class="bi bi-telephone-fill"></i><?= __('call') ?></a><?php endif; ?>
-    <?php if ($tenant['whatsapp_no']): ?><a class="act" href="https://wa.me/91<?= e($tenant['whatsapp_no']) ?>"><i class="bi bi-whatsapp"></i><?= __('whatsapp') ?></a><?php endif; ?>
+    <?php if ($tenant['whatsapp_no']): ?><a class="act" href="<?= e(waMeUrl($tenant['whatsapp_no'])) ?>"><i class="bi bi-whatsapp"></i><?= __('whatsapp') ?></a><?php endif; ?>
     <?php if ($tenant['maps_url']): ?><a class="act" href="<?= e($tenant['maps_url']) ?>" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i><?= __('directions') ?></a><?php endif; ?>
     <?php if ($tenant['google_review_url']): ?><a class="act" href="<?= e($tenant['google_review_url']) ?>" target="_blank" rel="noopener"><i class="bi bi-star-fill"></i>Review</a><?php endif; ?>
   </div>

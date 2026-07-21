@@ -289,7 +289,7 @@ if ($upi['id'] !== '') {
 <?php
 $base = BASE_URL;
 $onlineJs = $online ? '1' : '0';
-$waBase   = preg_replace('/\D/', '', (string)($upi['whatsapp'] ?: $upi['number']));
+$waBase   = formatWaNumber((string)($upi['whatsapp'] ?: $upi['number'])) ?? '';
 $jflags   = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
 $rname    = json_encode($tenant['restaurant_name'], $jflags);
 $qrJson   = json_encode($qrByPlan, $jflags) ?: '{}';
