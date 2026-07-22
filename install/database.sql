@@ -412,6 +412,20 @@ CREATE TABLE `{PREFIX}plan_requests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
+-- Site-wide visitor analytics (whole-platform traffic)
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}site_visits` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `visit_date` DATE NOT NULL,
+  `path` VARCHAR(190) NOT NULL,
+  `views` INT UNSIGNED NOT NULL DEFAULT 0,
+  `visitors` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_date_path` (`visit_date`,`path`),
+  KEY `idx_sv_date` (`visit_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- Referrals (Refer & Earn)
 -- ------------------------------------------------------------
 CREATE TABLE `{PREFIX}referrals` (

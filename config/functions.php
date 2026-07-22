@@ -1095,6 +1095,114 @@ function publicMenuUrl(string $slug): string {
     return BASE_URL . '/r/' . $slug;
 }
 
+// =============================================================================
+// SITE-WIDE ANALYTICS  (whole platform traffic, deduped per device/day)
+// =============================================================================
+
+/**
+ * Record one public page view for site analytics.
+ * Dedup: a single cookie 'aksv' stores today's date + the set of page hashes the
+ * device has already opened today, so the same visitor/refresh is not counted as
+ * a new unique. Row path='*' is the site-wide daily aggregate. Never throws; the
+ * site_visits table is auto-created so counting works even before the migration.
+ */
+function recordSiteVisit(string $path): void {
+    if ($path === '') return;
+    $today   = date('Y-m-d');
+    $raw     = (string)($_COOKIE['aksv'] ?? '');
+    $sep     = strpos($raw, '|');
+    $cDate   = $sep === false ? '' : substr($raw, 0, $sep);
+    $seenCsv = $sep === false ? '' : substr($raw, $sep + 1);
+    $newDay  = ($cDate !== $today);
+    $seen    = ($newDay || $seenCsv === '') ? [] : explode(',', $seenCsv);
+
+    $hash      = substr(hash('crc32b', $path), 0, 6);
+    $isNewPath = !in_array($hash, $seen, true);
+
+    $sql = 'INSERT INTO ' . tbl('site_visits') . ' (visit_date, path, views, visitors)
+            VALUES (CURDATE(), :p, 1, :u)
+            ON DUPLICATE KEY UPDATE views = views + 1, visitors = visitors + :u2';
+    $rec = function (string $p, int $u) use ($sql) {
+        try {
+            db_query($sql, [':p' => $p, ':u' => $u, ':u2' => $u]);
+        } catch (Throwable $e) {
+            try {
+                db_query('CREATE TABLE IF NOT EXISTS ' . tbl('site_visits') . ' (
+                    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    `visit_date` DATE NOT NULL,
+                    `path` VARCHAR(190) NOT NULL,
+                    `views` INT UNSIGNED NOT NULL DEFAULT 0,
+                    `visitors` INT UNSIGNED NOT NULL DEFAULT 0,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `uq_date_path` (`visit_date`,`path`),
+                    KEY `idx_sv_date` (`visit_date`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+                db_query($sql, [':p' => $p, ':u' => $u, ':u2' => $u]);
+            } catch (Throwable $e2) { /* give up silently */ }
+        }
+    };
+    $rec($path, $isNewPath ? 1 : 0);   // per-page row
+    $rec('*',   $newDay ? 1 : 0);      // site-wide daily aggregate
+
+    if ($isNewPath) { $seen[] = $hash; }
+    $seen = array_slice($seen, -40);   // keep the cookie small
+    $val  = $today . '|' . implode(',', $seen);
+    if (!headers_sent()) {
+        @setcookie('aksv', $val, ['expires' => strtotime('tomorrow 04:00'), 'path' => '/', 'samesite' => 'Lax']);
+    }
+    $_COOKIE['aksv'] = $val;
+}
+
+/**
+ * Called from the bootstrap on every request. Decides whether the current
+ * request is a real public page view worth tracking, then records it. Skips
+ * internal panels, APIs, assets, bots, XHR and super-admin previews. Public
+ * restaurant menus are grouped under '/r/*'. Never throws.
+ */
+function maybeTrackSiteVisit(): void {
+    try {
+        if (PHP_SAPI === 'cli') return;
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') return;
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) return;         // AJAX
+        $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if ($ua === '' || preg_match('~bot|crawl|spider|slurp|bing|preview|monitor|curl|wget|httrack|python-requests|facebookexternalhit|whatsapp~i', $ua)) return;
+        if (isSuperAdmin()) return;                                    // don't count ourselves
+
+        $uri = strtok((string)($_SERVER['REQUEST_URI'] ?? '/'), '?');
+        $basePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '';
+        if ($basePath && strpos($uri, $basePath) === 0) { $uri = substr($uri, strlen($basePath)); }
+        $uri = '/' . ltrim($uri, '/');
+        if (strlen($uri) > 1) { $uri = rtrim($uri, '/'); }
+
+        // Skip asset files.
+        if (preg_match('~\.(png|jpe?g|gif|webp|svg|ico|css|js|map|woff2?|ttf|xml|txt|json|pdf|zip)$~i', $uri)) return;
+        // Skip internal / non-content areas.
+        $lower = strtolower($uri);
+        foreach (['/admin','/client','/waiter','/kitchen','/api','/cron','/config','/install','/standee','/assets','/uploads','/libs','/vendor'] as $ex) {
+            if ($lower === $ex || strncmp($lower, $ex . '/', strlen($ex) + 1) === 0) return;
+        }
+        foreach (['/invoice.php','/sitemap','/robots','/favicon'] as $ex) {
+            if (strncmp($lower, $ex, strlen($ex)) === 0) return;
+        }
+        // Group all public restaurant menus together.
+        if (strncmp($uri, '/r/', 3) === 0 || strncmp($uri, '/t/', 3) === 0 || $uri === '/r' || $uri === '/t') { $uri = '/r/*'; }
+        if (strlen($uri) > 180) { $uri = substr($uri, 0, 180); }
+
+        recordSiteVisit($uri);
+    } catch (Throwable $e) { /* analytics must never break a page */ }
+}
+
+/** Friendly label for a tracked path (for the analytics dashboard). */
+function siteVisitLabel(string $path): string {
+    $map = [
+        '/'            => 'Home (landing)',
+        '/signup.php'  => 'Sign-up page',
+        '/r/*'         => 'Restaurant menus',
+        '*'            => 'Whole site',
+    ];
+    return $map[$path] ?? $path;
+}
+
 /**
  * Generate a QR PNG for a URL into /uploads/qr, return relative path.
  * Uses bundled phpqrcode if present; otherwise a Google Chart fallback URL image.

@@ -88,4 +88,6 @@ if (isset($pdo)) {
     $tz = getSetting('timezone', DEFAULT_TIMEZONE);
     if ($tz) { date_default_timezone_set($tz); }
     enforceSessionTimeout();
+    // Site-wide visitor analytics (deduped per device/day; public pages only).
+    maybeTrackSiteVisit();
 }

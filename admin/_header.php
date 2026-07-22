@@ -56,6 +56,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('notices',$activeNav,'/admin/notices.php','bi-pin-angle','Notice Board') ?>
       <?= nav_item('tickets',$activeNav,'/admin/tickets.php','bi-life-preserver','Support Tickets') ?>
       <div class="nav-section">Growth</div>
+      <?= nav_item('analytics',$activeNav,'/admin/analytics.php','bi-graph-up','Website Analytics') ?>
       <?= nav_item('marketing',$activeNav,'/admin/marketing.php','bi-megaphone-fill','Marketing & Ads') ?>
       <div class="nav-section">Finance</div>
       <?php $prPending = pendingPlanRequests(); ?>

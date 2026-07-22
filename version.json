@@ -1,8 +1,10 @@
 {
-    "version": "1.2.0",
-    "released_on": "2026-07-21",
+    "version": "1.2.1",
+    "released_on": "2026-07-22",
     "min_php": "8.0",
     "changelog": [
+        "Website Analytics (Admin → Website Analytics): daily & all-time visitors across the whole platform, a 30-day trend chart and a 'top pages' breakdown of what people open most",
+        "Visitor counting is deduped per device per day (refreshes and repeat opens are never double-counted); bots, super-admin visits, AJAX and internal panel/API/asset requests are excluded; restaurant menus are grouped together",
         "SEO built in: the landing page now has full meta/Open Graph/Twitter tags and SoftwareApplication structured data, each restaurant menu has local-SEO tags, plus a dynamic /sitemap.xml (every live menu) and robots.txt — so your site can rank when people search for a digital/QR menu",
         "Refer & Earn: every restaurant gets a shareable referral link; when someone they invite buys any plan, the referrer automatically gets bonus days (default 30, configurable). New 'Refer & Earn' page with link, WhatsApp/Facebook share and referral history",
         "Admin Marketing & Growth page: a ready-to-run Ads Kit (Google keywords + ad copy, Facebook/Instagram ad text in English + Gujarati, WhatsApp broadcast, hashtags) with one-click copy",
