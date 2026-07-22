@@ -949,6 +949,7 @@ function geminiGenerate(array $parts, string $model, array $genConfig = []): arr
     $url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey";
 
     $http = 0; $resp = false; $apiMsg = ''; $curlErr = '';
+    $t0 = microtime(true);
     for ($attempt = 1; $attempt <= 3; $attempt++) {
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -971,13 +972,19 @@ function geminiGenerate(array $parts, string $model, array $genConfig = []): arr
         if (in_array($http, [429, 503], true) && $attempt < 3) { sleep($retryDelay > 0 ? min($retryDelay, 30) : 2 * $attempt); continue; }
         break;
     }
+    $ms = (int)round((microtime(true) - $t0) * 1000);
 
     if ($http !== 200) {
-        return ['ok' => false, 'http' => $http, 'text' => '', 'apiMsg' => ($apiMsg ?: $curlErr ?: "HTTP $http"), 'model' => $model];
+        // Metering: log the failed call (0 tokens, status error).
+        if (function_exists('aiLogUsage')) { aiLogUsage('gemini', $model, null, 'error', $ms, ($apiMsg ?: $curlErr ?: "HTTP $http")); }
+        return ['ok' => false, 'http' => $http, 'text' => '', 'apiMsg' => ($apiMsg ?: $curlErr ?: "HTTP $http"), 'model' => $model, 'usage' => null];
     }
-    $json = json_decode((string)$resp, true);
-    $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
-    return ['ok' => true, 'http' => 200, 'text' => $text, 'apiMsg' => '', 'model' => $model];
+    $json  = json_decode((string)$resp, true);
+    $text  = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    $usage = function_exists('aiUsageFromGemini') ? aiUsageFromGemini($json['usageMetadata'] ?? null) : null;
+    // Metering: exact token counts from the provider's usageMetadata.
+    if (function_exists('aiLogUsage')) { aiLogUsage('gemini', $model, $usage, 'success', $ms); }
+    return ['ok' => true, 'http' => 200, 'text' => $text, 'apiMsg' => '', 'model' => $model, 'usage' => $usage];
 }
 
 /** True when an error message/status means "this model does not exist / is retired". */
@@ -1009,6 +1016,18 @@ function geminiExtractMenu(array $imagePaths): array {
         $parts[] = ['inline_data' => ['mime_type' => $mime, 'data' => base64_encode(file_get_contents($p))]];
     }
     if (count($parts) < 2) return ['ok' => false, 'data' => null, 'error' => 'No readable image was uploaded.'];
+
+    // Metering context + pre-flight runaway guard (never send an unbounded prompt).
+    if (function_exists('aiSetContext')) {
+        aiSetContext(['source' => 'menu_extract']);
+        $est = aiEstimateInputTokens((string)($parts[0]['text'] ?? ''), count($parts) - 1);
+        if (aiExceedsInputCap($est)) {
+            aiLogUsage('gemini', (string)getSetting('gemini_model', 'gemini-2.5-flash'), null, 'blocked', 0,
+                       "Pre-flight blocked: ~$est input tokens exceed the configured cap");
+            return ['ok' => false, 'data' => null,
+                'error' => 'This upload is too large to process safely. Please upload fewer or smaller images.'];
+        }
+    }
 
     $genConfig = ['temperature' => 0.1, 'response_mime_type' => 'application/json'];
     $lastErr = ''; $lastHttp = 0; $usedModel = '';
@@ -1053,6 +1072,7 @@ function geminiTestPrompt(string $prompt): array {
     if (!trim((string)getSetting('gemini_api_key', ''))) {
         return ['ok' => false, 'text' => '', 'model' => '', 'error' => 'No API key configured.'];
     }
+    if (function_exists('aiSetContext')) { aiSetContext(['source' => 'ai_test']); }
     $parts = [['text' => $prompt !== '' ? $prompt : 'Reply with a short friendly hello in English and Gujarati.']];
     $lastErr = '';
     foreach (geminiModelCandidates() as $model) {

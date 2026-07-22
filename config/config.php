@@ -83,6 +83,7 @@ if (defined('DB_HOST')) {
 
 require CONFIG_PATH . '/functions.php';
 require CONFIG_PATH . '/seo.php';
+require CONFIG_PATH . '/ai_metering.php';
 
 // Apply saved timezone / idle-timeout once DB helpers are available.
 if (isset($pdo)) {

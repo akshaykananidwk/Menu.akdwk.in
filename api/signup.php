@@ -135,6 +135,7 @@ if (!empty($paths)) {
     } elseif (!trim((string)getSetting('gemini_api_key', ''))) {
         $aiError = 'AI is not configured — you can add your menu manually.';
     } else {
+        aiSetContext(['user_id' => $tenantId, 'source' => 'signup_menu_extract', 'key_owner' => 'platform']);
         $res = geminiExtractMenu($paths);
         if ($res['ok']) {
             [$catCount, $itemCount] = signup_insert_menu($tenantId, $res['data'], $plan);

@@ -48,7 +48,8 @@ try {
             }
             if (!$paths) { jsonError('No valid image/PDF files were uploaded (jpg, png, webp, pdf only).'); }
 
-            // 3) Call Gemini.
+            // 3) Call Gemini (with metering context for token/cost logging).
+            aiSetContext(['user_id' => $tid, 'source' => 'menu_extract', 'key_owner' => 'platform']);
             $res = geminiExtractMenu($paths);
             if (!$res['ok']) {
                 logAi($tid, 'menu_ocr', 0, 'failed');

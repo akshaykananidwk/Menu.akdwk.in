@@ -1,8 +1,13 @@
 {
-    "version": "1.3.5",
+    "version": "1.4.0",
     "released_on": "2026-07-22",
     "min_php": "8.0",
     "changelog": [
+        "AI Token Usage & Cost Metering: every Gemini call now logs exact token counts (input/output/thinking/cached) from the provider's own usageMetadata and computes cost from an editable price table — no estimates",
+        "Admin → AI Usage & Cost: Overview (platform-key vs users'-key spend, daily cost chart, top users, warning banners), User-wise table with CSV export, per-user detail (model/feature breakdown, recent calls), Rates & Settings (edit prices, USD→local rate, markup, limits), and a monthly Billing report with markup + print/PDF",
+        "Each restaurant sees only its own 'AI Usage This Month' on its dashboard; clients can never see other users' data, prices or the platform key",
+        "Runaway-cost guard: oversized prompts are blocked pre-flight (logged as 'blocked'); alert threshold flags very large calls; logging is fire-and-forget so a logging failure never breaks the AI feature",
+        "Nightly cron (cron/ai_rollup.php) rolls usage into a daily table for fast dashboards and purges raw logs past the retention window; timezone-correct created_at",
         "Fixed the public menu (/r/{slug}) not scrolling on mobile — a global overflow-x:hidden I'd added to <html> for the panels was breaking vertical scroll on phone browsers; it's now scoped to the admin/client panels only",
         "Mobile modals now actually scroll: the body (not just the frame) is capped to the visible height, so every field below the fold (Plan, dates, status, password) is reachable while the header and Save button stay pinned",
         "Mobile: tall admin pop-ups (Edit Client, Add/Edit Plan, Generate Invoice) now fit the phone screen — the header and Save button stay pinned while the form scrolls, so you can always reach Save",

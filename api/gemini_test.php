@@ -16,6 +16,7 @@ $action = $_GET['action'] ?? 'test';
 switch ($action) {
     case 'test':
         $prompt = trim($_POST['prompt'] ?? '');
+        aiSetContext(['user_id' => 0, 'username' => 'Super Admin (test)', 'source' => 'ai_test', 'key_owner' => 'platform']);
         $res = geminiTestPrompt($prompt);
         if ($res['ok']) {
             jsonSuccess('Gemini responded successfully.', [

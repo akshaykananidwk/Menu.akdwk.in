@@ -67,7 +67,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
         <?php if ($prPending > 0): ?><span class="badge bg-danger ms-1"><?= $prPending ?></span><?php endif; ?>
       </a>
       <?= nav_item('invoices',$activeNav,'/admin/invoices.php','bi-receipt','Invoices') ?>
-      <?= nav_item('ai_report',$activeNav,'/admin/ai_report.php','bi-cpu','AI Usage') ?>
+      <?= nav_item('ai_usage',$activeNav,'/admin/ai_usage.php','bi-cpu','AI Usage & Cost') ?>
       <div class="nav-section">System</div>
       <?= nav_item('settings',$activeNav,'/admin/settings.php','bi-gear','Settings') ?>
       <?= nav_item('updates',$activeNav,'/admin/updates.php','bi-cloud-arrow-down','Updates') ?>
