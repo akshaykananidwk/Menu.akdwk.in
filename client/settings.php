@@ -15,7 +15,6 @@ require __DIR__ . '/_header.php';
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabGst">GST &amp; Tax</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabOrder">Ordering</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPass">Password</button></li>
-  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPlan">Plan</button></li>
 </ul>
 
 <div class="tab-content">
@@ -100,19 +99,6 @@ require __DIR__ . '/_header.php';
     </div></div>
   </div>
 
-  <!-- PLAN -->
-  <div class="tab-pane fade" id="tabPlan">
-    <div class="card"><div class="card-body">
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-          <h5 class="mb-1"><span class="badge bg-primary"><?= e($plan['name'] ?? 'No plan') ?></span></h5>
-          <div class="text-muted small">Expires: <strong><?= e($tenant['expiry_date'] ?: '—') ?></strong></div>
-          <div class="text-muted small">Max Items: <?= (int)($plan['max_items'] ?? 0) ?> · Max Categories: <?= (int)($plan['max_categories'] ?? 0) ?> · AI Credits: <?= (int)($plan['ai_credits'] ?? 0) ?></div>
-        </div>
-        <button class="btn btn-warning" onclick="requestUpgrade()"><i class="bi bi-arrow-up-circle"></i> Request Upgrade</button>
-      </div>
-    </div></div>
-  </div>
 </div>
 
 <?php
@@ -133,11 +119,6 @@ function saveSettings(ev){
   AK.post(API + '?action=settings', fd).then(r => AK.handle(r, () => {
     if(form.dataset.section === 'change_password') form.reset();
   }));
-}
-function requestUpgrade(){
-  AK.confirm('Send an upgrade/renewal request to support?','Request Upgrade').then(ok => { if(!ok) return;
-    AK.post(API + '?action=upgrade_request', {}).then(r => AK.handle(r));
-  });
 }
 </script>
 HTML;

@@ -63,24 +63,6 @@ require __DIR__ . '/_header.php';
     <div class="kpi-val"><?= $totalCats ?></div><div class="kpi-label"><i class="bi bi-grid"></i> Categories</div></div></div>
 </div>
 
-<?php
-// AI usage this month (this restaurant only — never shows others' data).
-$aiUse = function_exists('aiUserMonthUsage') ? aiUserMonthUsage($tid) : ['calls'=>0,'tokens'=>0,'local'=>0];
-if ($aiUse['calls'] > 0):
-  $aiSym = function_exists('aiLocalSymbol') ? aiLocalSymbol() : ($tenant['currency'] ?: '₹');
-?>
-<div class="card mt-3 border-0" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff">
-  <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
-    <div><h6 class="fw-semibold mb-0"><i class="bi bi-robot"></i> AI Usage This Month</h6>
-      <small class="opacity-75">AI menu imports you've run this month</small></div>
-    <div class="d-flex gap-4 text-center">
-      <div><div class="fs-4 fw-bold"><?= number_format($aiUse['calls']) ?></div><div class="small opacity-75">Requests</div></div>
-      <div><div class="fs-4 fw-bold"><?= number_format($aiUse['tokens']) ?></div><div class="small opacity-75">Tokens</div></div>
-      <div><div class="fs-4 fw-bold"><?= e($aiSym) . number_format($aiUse['local'], 2) ?></div><div class="small opacity-75">Est. Cost</div></div>
-    </div>
-  </div>
-</div>
-<?php endif; ?>
 
 <div class="card mt-3"><div class="card-body">
   <h6 class="fw-semibold mb-3"><i class="bi bi-graph-up-arrow"></i> Menu Scans — last 14 days</h6>
