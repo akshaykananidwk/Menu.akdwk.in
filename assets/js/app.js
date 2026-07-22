@@ -81,18 +81,31 @@
 
   // Make every modal fit the VISIBLE viewport (URL-bar aware) so tall forms
   // always scroll and the Save/footer stays reachable — on any mobile browser.
-  document.addEventListener('show.bs.modal', function (ev) {
-    var dlg = ev.target.querySelector('.modal-dialog');
-    if (!dlg) return;
-    dlg.classList.add('modal-dialog-scrollable');
-    var content = dlg.querySelector('.modal-content');
-    var apply = function () {
-      var vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
-      if (content) { content.style.maxHeight = Math.max(220, vh - 20) + 'px'; }
-    };
+  // We cap the .modal-body height directly (a flexbox height cap on .modal-content
+  // alone does NOT make the body scroll), so the body becomes the scroll area.
+  function fitModal(modalEl) {
+    var content = modalEl.querySelector('.modal-content');
+    var body = modalEl.querySelector('.modal-body');
+    if (!content || !body) return;
+    var vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+    var header = content.querySelector('.modal-header');
+    var footer = content.querySelector('.modal-footer');
+    var chrome = (header ? header.offsetHeight : 0) + (footer ? footer.offsetHeight : 0);
+    body.style.maxHeight = Math.max(140, vh - 28 - chrome) + 'px';
+    body.style.overflowY = 'auto';
+    body.style.webkitOverflowScrolling = 'touch';
+  }
+  document.addEventListener('shown.bs.modal', function (ev) {
+    var el = ev.target;
+    var apply = function () { fitModal(el); };
     apply();
-    setTimeout(apply, 50); // after Bootstrap lays the modal out
+    el._fitModal = apply;
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', apply); }
+  });
+  document.addEventListener('hidden.bs.modal', function (ev) {
+    if (ev.target._fitModal && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', ev.target._fitModal);
+    }
   });
 
   window.AK = AK;

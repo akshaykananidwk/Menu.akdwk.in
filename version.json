@@ -1,9 +1,9 @@
 {
-    "version": "1.3.3",
+    "version": "1.3.4",
     "released_on": "2026-07-22",
     "min_php": "8.0",
     "changelog": [
-        "Fixed the mobile pop-up scroll for real: CSS/JS are now cache-busted (?v=file-time) so updates reach your phone immediately instead of a month later, and a viewport-aware height cap (with a JS fallback) keeps every modal scrollable with Save always visible",
+        "Mobile modals now actually scroll: the body (not just the frame) is capped to the visible height, so every field below the fold (Plan, dates, status, password) is reachable while the header and Save button stay pinned",
         "Mobile: tall admin pop-ups (Edit Client, Add/Edit Plan, Generate Invoice) now fit the phone screen — the header and Save button stay pinned while the form scrolls, so you can always reach Save",
         "Configurable trial: Admin → Plans → 'Trial & Launch Offer' sets which plan new signups get during the trial (default: the best/most-featured plan, so trials are full-featured) and how many days it lasts",
         "Launch offer: an automatic time-limited discount (default 50% within 24h of signup, configurable) — the client Plans page shows a live countdown banner and struck-through prices, and the discount is re-applied server-side on payment (never trusted from the browser)",
