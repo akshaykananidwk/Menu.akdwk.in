@@ -26,6 +26,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
 <html lang="en" data-theme="<?= e(getSetting('theme_mode','light')==='dark'?'dark':'light') ?>">
 <head>
 <meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="<?= e(csrfToken()) ?>">
 <meta name="base-url" content="<?= e(BASE_URL) ?>">

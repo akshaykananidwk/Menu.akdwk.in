@@ -11,7 +11,7 @@ $tid    = (int)($_SESSION['staff_tenant_id'] ?? 0);
 $tenant = db_one('SELECT restaurant_name FROM ' . tbl('tenants') . ' WHERE id = :i', [':i' => $tid]);
 ?>
 <!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="csrf-token" content="<?= e(csrfToken()) ?>">
 <meta name="base-url" content="<?= e(BASE_URL) ?>">
 <title>Kitchen · <?= e($tenant['restaurant_name'] ?? '') ?></title>

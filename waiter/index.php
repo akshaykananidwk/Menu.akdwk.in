@@ -21,7 +21,7 @@ $recent = db_all('SELECT o.*, t.table_no FROM ' . tbl('orders') . ' o
                   ORDER BY o.id DESC LIMIT 15', [':t' => $tid, ':s' => $staffId]);
 ?>
 <!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="csrf-token" content="<?= e(csrfToken()) ?>">
 <meta name="base-url" content="<?= e(BASE_URL) ?>">
 <title>Waiter · <?= e($tenant['restaurant_name']) ?></title>
