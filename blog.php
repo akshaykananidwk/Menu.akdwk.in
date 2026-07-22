@@ -1,6 +1,7 @@
 <?php
 /** Blog: /blog (list), /blog/{slug} (post), /blog/category/{slug}. Server-rendered. */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 checkMaintenance();
 
 $site = getSetting('site_name', 'AK Menu System');

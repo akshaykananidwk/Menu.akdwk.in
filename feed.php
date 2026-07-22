@@ -1,6 +1,7 @@
 <?php
 /** RSS 2.0 feed of published blog posts at /feed.xml. */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 header('Content-Type: application/rss+xml; charset=utf-8');
 
 $site = getSetting('site_name', 'AK Menu System');

@@ -4,6 +4,7 @@
  * Children: pages, restaurants (split if huge), cities, blog.
  */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 header('Content-Type: application/xml; charset=utf-8');
 
 $base = rtrim(BASE_URL, '/');

@@ -1,6 +1,7 @@
 <?php
 /** Dynamic robots.txt — blocks panels/system, points to the sitemap index. */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 header('Content-Type: text/plain; charset=utf-8');
 $base = rtrim(BASE_URL, '/');
 ?>

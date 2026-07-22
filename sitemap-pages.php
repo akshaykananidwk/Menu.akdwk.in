@@ -1,6 +1,7 @@
 <?php
 /** Static marketing pages sitemap (cached 6h). */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 header('Content-Type: application/xml; charset=utf-8');
 
 if ($c = seoCacheGet('sitemap-pages')) { echo $c; exit; }

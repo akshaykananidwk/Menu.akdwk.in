@@ -7,6 +7,7 @@
  * Breadcrumb JSON-LD. Server-rendered.
  */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 checkMaintenance();
 seedSeoCitiesIfEmpty();
 

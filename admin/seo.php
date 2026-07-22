@@ -7,6 +7,7 @@
 $pageTitle = 'SEO Manager';
 $activeNav = 'seo';
 require __DIR__ . '/_header.php';
+require_once CONFIG_PATH . '/seo.php'; // ensure SEO helpers exist even if a cached config.php didn't load them
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrfCheck();

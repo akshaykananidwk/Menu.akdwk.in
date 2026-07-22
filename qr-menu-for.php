@@ -1,6 +1,7 @@
 <?php
 /** /qr-menu-for/{type} — business-type landing page (café, dhaba, bakery, …). */
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/seo.php';
 checkMaintenance();
 
 $type = strtolower(trim((string)($_GET['type'] ?? '')));
