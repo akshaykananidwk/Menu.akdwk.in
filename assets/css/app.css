@@ -40,9 +40,11 @@ a{color:var(--primary);}
   /* Dim + tap-to-close backdrop when the mobile menu is open */
   .sidebar.open::after{content:"";position:fixed;inset:0 0 0 100%;width:100vw;background:rgba(0,0,0,.35);z-index:-1;}
 }
-/* Never let a page scroll sideways on phones */
-html,body{max-width:100%;overflow-x:hidden;}
-.content{min-width:0;max-width:100vw;}
+/* Never let the ADMIN/CLIENT panels scroll sideways on phones.
+   Scoped to the panel shell only — public menu pages manage their own overflow,
+   and a global overflow-x:hidden on <html> can break vertical scrolling. */
+.app-shell{max-width:100%;overflow-x:hidden;}
+.content{min-width:0;max-width:100vw;overflow-x:hidden;}
 @media(max-width:767px){
   .page-wrap{padding:14px;}
   .topbar{padding:0 12px;gap:8px;}
