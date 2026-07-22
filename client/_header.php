@@ -36,7 +36,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
 <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="<?= e(BASE_URL) ?>/assets/css/app.css" rel="stylesheet">
+<link href="<?= e(assetUrl('assets/css/app.css')) ?>" rel="stylesheet">
 <style>:root{--primary:<?= e($primary) ?>;--secondary:<?= e($secondary) ?>;--sidebar-bg:<?= e($secondary) ?>;}</style>
 </head>
 <body>

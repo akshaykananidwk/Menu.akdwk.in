@@ -1108,6 +1108,18 @@ function mediaUrl(?string $path): string {
 }
 
 /**
+ * URL for a local static asset (CSS/JS/img) with a cache-busting ?v= based on
+ * the file's modification time — so browsers always pick up the newest version
+ * after an update, despite the long cache headers on static files.
+ */
+function assetUrl(string $rel): string {
+    $rel  = ltrim($rel, '/');
+    $full = ROOT_PATH . '/' . $rel;
+    $v    = @filemtime($full) ?: (defined('APP_VERSION') ? APP_VERSION : '1');
+    return BASE_URL . '/' . $rel . '?v=' . $v;
+}
+
+/**
  * Record a public menu open/scan for analytics (aggregated per tenant per day).
  *
  * Counted ONCE PER DEVICE PER DAY per restaurant using a long-lived cookie, so

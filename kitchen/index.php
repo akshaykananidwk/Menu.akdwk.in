@@ -17,7 +17,7 @@ $tenant = db_one('SELECT restaurant_name FROM ' . tbl('tenants') . ' WHERE id = 
 <title>Kitchen · <?= e($tenant['restaurant_name'] ?? '') ?></title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="<?= e(BASE_URL) ?>/assets/css/app.css" rel="stylesheet">
+<link href="<?= e(assetUrl('assets/css/app.css')) ?>" rel="stylesheet">
 <style>
 body{margin:0}
 .kot-top{background:#161b22;color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:20}

@@ -136,7 +136,7 @@ body{font-family:'Poppins','Noto Sans Gujarati',system-ui,sans-serif;background:
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= e(BASE_URL) ?>/assets/js/app.js"></script>
+<script src="<?= e(assetUrl('assets/js/app.js')) ?>"></script>
 <script>
 const BASE = '<?= e(BASE_URL) ?>';
 let files = [];

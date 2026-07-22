@@ -79,5 +79,21 @@
     }
   });
 
+  // Make every modal fit the VISIBLE viewport (URL-bar aware) so tall forms
+  // always scroll and the Save/footer stays reachable — on any mobile browser.
+  document.addEventListener('show.bs.modal', function (ev) {
+    var dlg = ev.target.querySelector('.modal-dialog');
+    if (!dlg) return;
+    dlg.classList.add('modal-dialog-scrollable');
+    var content = dlg.querySelector('.modal-content');
+    var apply = function () {
+      var vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
+      if (content) { content.style.maxHeight = Math.max(220, vh - 20) + 'px'; }
+    };
+    apply();
+    setTimeout(apply, 50); // after Bootstrap lays the modal out
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', apply); }
+  });
+
   window.AK = AK;
 })(window, window.jQuery || function () {});
