@@ -35,8 +35,24 @@ a{color:var(--primary);}
 [data-theme="dark"] .topbar{background:#1a1f2b;}
 .page-wrap{padding:24px;}
 @media(max-width:991px){
-  .sidebar{transform:translateX(-100%);} .sidebar.open{transform:none;}
+  .sidebar{transform:translateX(-100%);width:82%;max-width:300px;} .sidebar.open{transform:none;}
   .content{margin-left:0;}
+  /* Dim + tap-to-close backdrop when the mobile menu is open */
+  .sidebar.open::after{content:"";position:fixed;inset:0 0 0 100%;width:100vw;background:rgba(0,0,0,.35);z-index:-1;}
+}
+/* Never let a page scroll sideways on phones */
+html,body{max-width:100%;overflow-x:hidden;}
+.content{min-width:0;max-width:100vw;}
+@media(max-width:767px){
+  .page-wrap{padding:14px;}
+  .topbar{padding:0 12px;gap:8px;}
+  .topbar h6{font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Wide tables scroll instead of breaking the layout (buttons stay reachable) */
+  .table-responsive,.dataTables_wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .dataTables_wrapper table.dataTable{min-width:560px;}
+  /* Bootstrap modals hug the screen edges on small phones */
+  .modal-dialog{margin:.5rem;}
+  .btn{white-space:nowrap;}
 }
 .sidebar-toggle{border:0;background:transparent;font-size:1.4rem;}
 

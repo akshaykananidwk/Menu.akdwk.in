@@ -6,6 +6,19 @@
 require_once dirname(__DIR__) . '/config/config.php';
 requireAdmin();
 
+// Save Trial & Offer settings.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'trial_offer') {
+    csrfCheck();
+    if (!isSuperAdmin()) { http_response_code(403); die('Forbidden'); }
+    setSetting('trial_plan_id', (int)($_POST['trial_plan_id'] ?? 0));
+    setSetting('trial_days', max(1, (int)($_POST['trial_days'] ?? 7)));
+    setSetting('launch_offer_enabled', !empty($_POST['launch_offer_enabled']) ? '1' : '0');
+    setSetting('launch_offer_percent', max(0, min(100, (int)($_POST['launch_offer_percent'] ?? 50))));
+    setSetting('launch_offer_hours', max(1, (int)($_POST['launch_offer_hours'] ?? 24)));
+    logActivity('super_admin', $_SESSION['admin_id'] ?? null, 'Updated trial & offer settings');
+    redirect(BASE_URL . '/admin/plans.php?saved=1');
+}
+
 $plans = db_all('SELECT * FROM ' . tbl('plans') . ' ORDER BY price ASC, id ASC');
 
 // Feature flag keys (order = display order in the modal).
@@ -25,7 +38,45 @@ $featureKeys = [
 $pageTitle = 'Plans';
 $activeNav = 'plans';
 require __DIR__ . '/_header.php';
+$trialPlanId = (int)getSetting('trial_plan_id', 0);
 ?>
+<?php if (isset($_GET['saved'])): ?><div class="alert alert-success py-2 small">Saved.</div><?php endif; ?>
+
+<!-- Trial & Launch Offer settings -->
+<div class="card mb-3"><div class="card-body">
+  <h6 class="fw-semibold mb-3"><i class="bi bi-gift text-primary"></i> Trial &amp; Launch Offer</h6>
+  <form method="post" class="row g-3 align-items-end">
+    <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>"><input type="hidden" name="form" value="trial_offer">
+    <div class="col-md-4">
+      <label class="form-label small">Trial plan (features given during trial)</label>
+      <select name="trial_plan_id" class="form-select form-select-sm">
+        <option value="0">Auto (best / unlimited)</option>
+        <?php foreach ($plans as $p): ?>
+          <option value="<?= (int)$p['id'] ?>" <?= $trialPlanId === (int)$p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?><?= (float)$p['price'] > 0 ? ' (₹' . (int)$p['price'] . ')' : ' (free)' ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Trial days</label>
+      <input type="number" min="1" name="trial_days" class="form-control form-control-sm" value="<?= (int)getSetting('trial_days', 7) ?>">
+    </div>
+    <div class="col-md-6">
+      <div class="border rounded p-2">
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="loEnabled" name="launch_offer_enabled" value="1" <?= getSetting('launch_offer_enabled','1')==='1'?'checked':'' ?>>
+          <label class="form-check-label small fw-semibold" for="loEnabled">Launch offer — discount if they upgrade quickly</label>
+        </div>
+        <div class="row g-2">
+          <div class="col-6"><label class="form-label small mb-0">Discount %</label><input type="number" min="0" max="100" name="launch_offer_percent" class="form-control form-control-sm" value="<?= (int)getSetting('launch_offer_percent',50) ?>"></div>
+          <div class="col-6"><label class="form-label small mb-0">Within (hours of signup)</label><input type="number" min="1" name="launch_offer_hours" class="form-control form-control-sm" value="<?= (int)getSetting('launch_offer_hours',24) ?>"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12"><button class="btn btn-primary btn-sm">Save Trial &amp; Offer</button>
+      <span class="text-muted small ms-2">New signups get the trial plan for the trial days (all its features, free). The launch offer auto-applies a discount when a client upgrades within the window.</span></div>
+  </form>
+</div></div>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h6 class="mb-0 fw-semibold"><i class="bi bi-box-seam text-primary"></i> Subscription Plans</h6>
   <button class="btn btn-primary btn-sm" id="btnAddPlan"><i class="bi bi-plus-lg"></i> Add Plan</button>

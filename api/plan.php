@@ -31,6 +31,8 @@ function planInvoice(int $tenantId, array $plan, string $status): array {
     $rate   = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
     $tax    = round($amount * $rate / 100, 2);
     $total  = $amount + $tax;
+    // Launch/welcome offer: auto-discount if the tenant is within the offer window.
+    $total  = applyLaunchDiscount($tenantId, $total);
     $seq    = (int)db_val('SELECT COUNT(*) FROM ' . tbl('invoices')) + 1;
     $invNo  = 'INV-' . date('Ym') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
     $id = db_insert('invoices', [
@@ -111,7 +113,7 @@ try {
         $secret  = trim((string)getSetting('razorpay_secret', ''));
         $rate    = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
         $amount  = (float)$plan['price'];
-        $total   = $amount + round($amount * $rate / 100, 2);
+        $total   = applyLaunchDiscount($tenantId, $amount + round($amount * $rate / 100, 2));
         $paise   = (int)round($total * 100);
         if ($paise < 100) { jsonError('This plan is free — no payment needed. Contact support to activate.'); }
 

@@ -47,6 +47,16 @@ $money = function (float $n) use ($curr) {
 /** Gross total incl. tax. */
 $gross = function (float $price) use ($taxRate) { return round($price + $price * $taxRate / 100, 2); };
 
+// Launch offer (e.g. 50% off within 24h of signup) + a menu-size based suggestion.
+$offer      = launchOffer($tid);
+$suggestId  = suggestPlanForTenant($tid);
+try { $myItems = (int)db_val('SELECT COUNT(*) FROM ' . tbl('items') . ' WHERE tenant_id = :t AND status = 1', [':t' => $tid]); }
+catch (Throwable $e) { $myItems = 0; }
+/** Payable after launch discount. */
+$payable = function (float $g) use ($offer) {
+    return $offer['active'] ? round($g * (100 - $offer['percent']) / 100, 2) : $g;
+};
+
 /** Human feature/limit lines for a plan card. */
 function planLines(array $p): array {
     $feat  = json_decode($p['features_json'] ?? '{}', true) ?: [];
@@ -90,6 +100,9 @@ if ($upi['id'] !== '') {
 .plan-card{border:1px solid #e6e8ef;border-radius:16px;transition:.15s;height:100%}
 .plan-card:hover{box-shadow:0 12px 32px rgba(0,0,0,.08);transform:translateY(-2px)}
 .plan-card.current{border:2px solid var(--primary);box-shadow:0 8px 28px rgba(0,0,0,.07)}
+.plan-card.reco{border:2px solid var(--primary);box-shadow:0 12px 30px rgba(0,0,0,.10);position:relative}
+.offer-band{background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;border-radius:14px;padding:1rem 1.2rem}
+#offerCountdown{font-variant-numeric:tabular-nums}
 .plan-price{font-size:1.9rem;font-weight:700}
 .plan-feat{list-style:none;padding:0;margin:0;font-size:.9rem}
 .plan-feat li{padding:.28rem 0;border-bottom:1px dashed #eef0f5;display:flex;gap:.5rem;align-items:center}
@@ -134,27 +147,58 @@ if ($upi['id'] !== '') {
 </div>
 <?php endif; ?>
 
+<?php if ($offer['active']): ?>
+<div class="offer-band mb-3" data-ends="<?= (int)(time() + $offer['seconds_left']) ?>">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <div class="fs-3">🎉</div>
+    <div class="flex-grow-1">
+      <div class="fw-bold">Welcome offer — pay only <?= 100 - $offer['percent'] ?>%!</div>
+      <div class="small">Upgrade now and get <strong><?= $offer['percent'] ?>% OFF</strong> any plan. Offer ends in <span id="offerCountdown" class="fw-bold">—</span>.</div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <h5 class="fw-semibold mb-3">Choose a plan</h5>
+<?php if ($suggestId && $myItems > 0): ?>
+  <?php $sg = null; foreach ($plans as $pp) { if ((int)$pp['id'] === $suggestId) { $sg = $pp; break; } } ?>
+  <?php if ($sg && (!$plan || (int)$plan['id'] !== $suggestId)): ?>
+  <div class="alert alert-primary d-flex align-items-center gap-2 py-2">
+    <i class="bi bi-magic fs-5"></i>
+    <div class="small">You have <strong><?= $myItems ?> menu items</strong>. Based on that, the <strong><?= e($sg['name']) ?></strong> plan is the best fit for you — it's marked <span class="badge bg-primary">Recommended</span> below.</div>
+  </div>
+  <?php endif; ?>
+<?php endif; ?>
 <div class="row g-3">
   <?php foreach ($plans as $p):
       $isCurrent = $plan && (int)$plan['id'] === (int)$p['id'] && !$expired;
-      $g = $gross((float)$p['price']);
+      $isReco    = $suggestId === (int)$p['id'] && !$isCurrent;
+      $g   = $gross((float)$p['price']);
+      $pay = $payable($g);                        // after launch discount
+      $hasOffer = $offer['active'] && (float)$p['price'] > 0;
   ?>
   <div class="col-md-6 col-xl-4">
-    <div class="card plan-card <?= $isCurrent ? 'current' : '' ?>">
+    <div class="card plan-card <?= $isCurrent ? 'current' : '' ?> <?= $isReco ? 'reco' : '' ?>">
       <div class="card-body d-flex flex-column">
         <div class="d-flex justify-content-between align-items-start">
           <h5 class="fw-bold mb-0"><?= e($p['name']) ?></h5>
-          <?php if ($isCurrent): ?><span class="badge bg-primary">Current</span><?php endif; ?>
+          <?php if ($isCurrent): ?><span class="badge bg-primary">Current</span>
+          <?php elseif ($isReco): ?><span class="badge bg-primary">Recommended</span><?php endif; ?>
         </div>
         <div class="my-2">
-          <span class="plan-price" style="color:var(--primary)"><?= (float)$p['price'] > 0 ? $money((float)$p['price']) : 'Free' ?></span>
+          <?php if ($hasOffer): ?>
+            <span class="plan-price" style="color:var(--primary)"><?= $money($payable((float)$p['price'])) ?></span>
+            <span class="text-muted text-decoration-line-through small ms-1"><?= $money((float)$p['price']) ?></span>
+            <span class="badge bg-danger ms-1"><?= $offer['percent'] ?>% OFF</span>
+          <?php else: ?>
+            <span class="plan-price" style="color:var(--primary)"><?= (float)$p['price'] > 0 ? $money((float)$p['price']) : 'Free' ?></span>
+          <?php endif; ?>
           <?php if ((float)$p['price'] > 0): ?>
             <span class="text-muted small">/ <?= (int)$p['validity_days'] ?> days</span>
           <?php endif; ?>
         </div>
         <?php if ($taxRate > 0 && (float)$p['price'] > 0): ?>
-          <div class="text-muted small mb-2">+ <?= rtrim(rtrim(number_format($taxRate, 2), '0'), '.') ?>% GST · pay <?= $money($g) ?></div>
+          <div class="text-muted small mb-2">incl. <?= rtrim(rtrim(number_format($taxRate, 2), '0'), '.') ?>% GST · pay <strong><?= $money($pay) ?></strong><?= $hasOffer ? ' <span class="text-success">(offer applied)</span>' : '' ?></div>
         <?php endif; ?>
         <ul class="plan-feat mb-3">
           <?php foreach (planLines($p) as $line): ?>
@@ -165,14 +209,14 @@ if ($upi['id'] !== '') {
           <?php if ($isCurrent): ?>
             <button class="btn btn-outline-primary w-100 buyBtn"
                     data-id="<?= (int)$p['id'] ?>" data-name="<?= e($p['name']) ?>"
-                    data-price="<?= $g ?>" data-days="<?= (int)$p['validity_days'] ?>"
+                    data-price="<?= $pay ?>" data-days="<?= (int)$p['validity_days'] ?>"
                     <?= $pending ? 'disabled' : '' ?>>
               <i class="bi bi-arrow-repeat"></i> Renew / Extend
             </button>
           <?php else: ?>
             <button class="btn btn-primary w-100 buyBtn"
                     data-id="<?= (int)$p['id'] ?>" data-name="<?= e($p['name']) ?>"
-                    data-price="<?= $g ?>" data-days="<?= (int)$p['validity_days'] ?>"
+                    data-price="<?= $pay ?>" data-days="<?= (int)$p['validity_days'] ?>"
                     <?= $pending ? 'disabled' : '' ?>>
               <i class="bi bi-bag-check"></i> <?= (float)$p['price'] > 0 ? 'Choose plan' : 'Request' ?>
             </button>
@@ -300,6 +344,21 @@ $rzpSrc
 const B = '$base', ONLINE = $onlineJs === 1, WA = '$waBase', RNAME = $rname, QR = $qrJson;
 let cur = {};
 const payModal = new bootstrap.Modal(document.getElementById('payModal'));
+
+// Launch-offer countdown (auto-hides when it expires).
+(function(){
+  const band = document.querySelector('.offer-band'); if(!band) return;
+  const ends = parseInt(band.dataset.ends,10)*1000;
+  const el = document.getElementById('offerCountdown');
+  function tick(){
+    let s = Math.floor((ends - Date.now())/1000);
+    if(s<=0){ band.style.display='none'; return; }
+    const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+    if(el) el.textContent = (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;
+    setTimeout(tick,1000);
+  }
+  tick();
+})();
 
 function money(n){ return '{$curr}' + (Number(n)%1===0 ? Number(n).toFixed(0) : Number(n).toFixed(2)); }
 

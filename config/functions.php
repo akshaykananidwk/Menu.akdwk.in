@@ -392,6 +392,79 @@ function pendingPlanRequests(): int {
 }
 
 // =============================================================================
+// TRIAL PLAN + LAUNCH OFFER + PLAN SUGGESTION
+// =============================================================================
+
+/**
+ * The plan a new signup should get for its free trial. Admin can pin one via the
+ * `trial_plan_id` setting; otherwise the most feature-rich free plan is used,
+ * falling back to the most feature-rich active plan (so trials get the BEST plan).
+ */
+function trialPlan(): ?array {
+    $id = (int)getSetting('trial_plan_id', 0);
+    if ($id) {
+        $p = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE id = :id AND status = 1', [':id' => $id]);
+        if ($p) return $p;
+    }
+    // Best free plan (unlimited-ish) …
+    $p = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE price = 0 AND status = 1 ORDER BY max_items DESC, validity_days DESC LIMIT 1');
+    if ($p) return $p;
+    // … else the most generous active plan.
+    return db_one('SELECT * FROM ' . tbl('plans') . ' WHERE status = 1 ORDER BY max_items DESC, price DESC LIMIT 1');
+}
+
+/** Configured trial length in days (default 7). */
+function trialDays(): int {
+    $d = (int)getSetting('trial_days', 0);
+    return $d > 0 ? $d : 7;
+}
+
+/**
+ * Launch (welcome) discount state for a tenant: a % off if they upgrade within
+ * N hours of opening the account. Configurable + auto-expiring.
+ * @return array{active:bool,percent:int,seconds_left:int,ends_at:?string}
+ */
+function launchOffer(int $tenantId): array {
+    $out = ['active' => false, 'percent' => 0, 'seconds_left' => 0, 'ends_at' => null];
+    if (getSetting('launch_offer_enabled', '1') !== '1') return $out;
+    $percent = (int)getSetting('launch_offer_percent', 50);
+    $hours   = (int)getSetting('launch_offer_hours', 24);
+    if ($percent <= 0 || $hours <= 0 || $tenantId <= 0) return $out;
+    $t = db_one('SELECT created_at FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
+    if (!$t || empty($t['created_at'])) return $out;
+    $ends = strtotime($t['created_at']) + $hours * 3600;
+    $left = $ends - time();
+    if ($left <= 0) return $out;
+    return ['active' => true, 'percent' => min(100, $percent), 'seconds_left' => $left, 'ends_at' => date('c', $ends)];
+}
+
+/** Apply the launch discount to a gross amount for a tenant (returns the payable). */
+function applyLaunchDiscount(int $tenantId, float $amount): float {
+    $o = launchOffer($tenantId);
+    if (!$o['active']) return round($amount, 2);
+    return round($amount * (100 - $o['percent']) / 100, 2);
+}
+
+/**
+ * Suggest the cheapest PAID plan that comfortably fits a tenant's current menu
+ * size (items/categories/tables). Returns a plan id, or null.
+ */
+function suggestPlanForTenant(int $tenantId): ?int {
+    try {
+        $items  = (int)db_val('SELECT COUNT(*) FROM ' . tbl('items') . ' WHERE tenant_id = :t AND status = 1', [':t' => $tenantId]);
+        $cats   = (int)db_val('SELECT COUNT(*) FROM ' . tbl('categories') . ' WHERE tenant_id = :t AND status = 1', [':t' => $tenantId]);
+        $tables = (int)db_val('SELECT COUNT(*) FROM ' . tbl('tables') . ' WHERE tenant_id = :t', [':t' => $tenantId]);
+        $plans  = db_all('SELECT * FROM ' . tbl('plans') . ' WHERE status = 1 AND price > 0 ORDER BY price ASC');
+        foreach ($plans as $p) {
+            if ((int)$p['max_items'] >= $items && (int)$p['max_categories'] >= $cats && (int)$p['max_tables'] >= $tables) {
+                return (int)$p['id'];
+            }
+        }
+        return $plans ? (int)$plans[count($plans) - 1]['id'] : null;
+    } catch (Throwable $e) { return null; }
+}
+
+// =============================================================================
 // REFER & EARN
 // =============================================================================
 

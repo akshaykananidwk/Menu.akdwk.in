@@ -56,18 +56,11 @@ if ($email !== '' && db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE e
 }
 
 // ---- Pick the trial plan ----------------------------------------------------
-// Every self-signup gets the FREE, unlimited trial plan. Among free plans, prefer
-// the most generous (highest item limit) so new users always get the unlimited one.
-$plan = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE price = 0 AND status = 1 ORDER BY max_items DESC, validity_days DESC LIMIT 1');
-$isFreeTrial = (bool)$plan;
-if (!$plan) {
-    // No free plan configured — fall back to any active plan (but keep the trial short below).
-    $plan = db_one('SELECT * FROM ' . tbl('plans') . ' WHERE status = 1 ORDER BY price ASC LIMIT 1');
-}
+// The trial plan + length are set by the admin (Plans → Trial & Offers). By
+// default the most feature-rich plan is used so trials get the BEST experience.
+$plan = trialPlan();
 if (!$plan) { jsonError('No signup plan is configured. Please contact support.', 500); }
-// Trial length = the free plan's own validity (7 days in the default install). If we
-// had to fall back to a paid plan, cap it to 7 days so a paid plan is never given away.
-$validity = $isFreeTrial ? max(1, (int)$plan['validity_days']) : 7;
+$validity = trialDays();
 
 // ---- Create the tenant ------------------------------------------------------
 $slug       = makeSlug($name);
