@@ -54,25 +54,33 @@ $ogImage = $logo ? mediaUrl($logo) : (BASE_URL . '/assets/img/food/paneer-tikka.
 <meta name="twitter:title" content="<?= e($siteName) ?> — <?= e($tagline) ?>">
 <meta name="twitter:description" content="<?= e($seoDesc) ?>">
 <meta name="twitter:image" content="<?= e($ogImage) ?>">
-<!-- Structured data -->
+<!-- Structured data: Organization + WebSite + SoftwareApplication (no fake ratings) -->
 <script type="application/ld+json">
-<?= json_encode([
-  '@context' => 'https://schema.org',
-  '@type'    => 'SoftwareApplication',
-  'name'     => $siteName,
-  'applicationCategory' => 'BusinessApplication',
-  'operatingSystem'     => 'Web',
-  'description' => $seoDesc,
-  'url'         => BASE_URL . '/',
-  'image'       => $ogImage,
-  'offers'      => array_map(fn($p) => [
-      '@type' => 'Offer',
-      'price' => (string)(float)$p['price'],
-      'priceCurrency' => 'INR',
-      'name'  => $p['name'],
-  ], $plans ?: [['price'=>0,'name'=>'Free Trial']]),
-  'aggregateRating' => ['@type'=>'AggregateRating','ratingValue'=>'4.8','reviewCount'=>(string)max(12,$restaurantCount)],
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+<?= json_encode(['@context' => 'https://schema.org', '@graph' => [
+  [
+    '@type' => 'Organization', '@id' => BASE_URL . '/#org',
+    'name' => $siteName, 'url' => BASE_URL . '/', 'logo' => $ogImage,
+    'sameAs' => array_values(array_filter([getSetting('facebook_url',''), getSetting('instagram_url','')])),
+  ],
+  [
+    '@type' => 'WebSite', '@id' => BASE_URL . '/#website',
+    'url' => BASE_URL . '/', 'name' => $siteName, 'publisher' => ['@id' => BASE_URL . '/#org'],
+    'potentialAction' => [
+      '@type' => 'SearchAction',
+      'target' => ['@type' => 'EntryPoint', 'urlTemplate' => BASE_URL . '/digital-menu/{search_term_string}'],
+      'query-input' => 'required name=search_term_string',
+    ],
+  ],
+  [
+    '@type' => 'SoftwareApplication', 'name' => $siteName,
+    'applicationCategory' => 'BusinessApplication', 'operatingSystem' => 'Web',
+    'description' => $seoDesc, 'url' => BASE_URL . '/', 'image' => $ogImage,
+    'offers' => array_map(fn($p) => [
+        '@type' => 'Offer', 'price' => (string)(float)$p['price'],
+        'priceCurrency' => 'INR', 'name' => $p['name'],
+    ], $plans ?: [['price'=>0,'name'=>'Free Trial']]),
+  ],
+]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
 </script>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">

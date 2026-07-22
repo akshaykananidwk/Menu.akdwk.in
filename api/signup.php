@@ -176,6 +176,9 @@ try {
     }
 } catch (Throwable $e) { /* WhatsApp failure must not fail signup */ }
 
+// ---- Tell search engines a new menu was published ---------------------------
+if (function_exists('pingSearchEngines')) { pingSearchEngines($menuUrl); }
+
 // ---- Auto-login the new owner so they land in their panel -------------------
 regenerateSession();
 $_SESSION['tenant_id'] = $tenantId;

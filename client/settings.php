@@ -71,6 +71,17 @@ require __DIR__ . '/_header.php';
         </div>
         <button class="btn btn-primary mt-3">Save Ordering</button>
       </form>
+      <hr class="my-4">
+      <form class="settingsForm" data-section="seo" onsubmit="saveSettings(event)">
+        <h6 class="fw-semibold"><i class="bi bi-search"></i> Search Engine Visibility</h6>
+        <div class="form-check form-switch mt-2">
+          <input type="hidden" name="allow_indexing" value="0">
+          <input class="form-check-input" type="checkbox" role="switch" id="allowIndexing" name="allow_indexing" value="1" <?= (int)($tenant['allow_indexing'] ?? 1) === 1 ? 'checked' : '' ?>>
+          <label class="form-check-label" for="allowIndexing">Allow Google &amp; search engines to list my menu</label>
+        </div>
+        <p class="text-muted small mt-1">When on, your menu can appear in Google search and is added to the sitemap. Turn off to keep it private (won't be indexed).</p>
+        <button class="btn btn-primary mt-1">Save</button>
+      </form>
     </div></div>
   </div>
 

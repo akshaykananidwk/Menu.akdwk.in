@@ -31,22 +31,28 @@ $itemCount = 0; foreach ($categories as $c) { $itemCount += count($c['items']); 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="<?= e($primary) ?>">
-<title><?= e($tenant['restaurant_name']) ?> — Menu<?= $tenant['city'] ? ', ' . e($tenant['city']) : '' ?></title>
-<meta name="description" content="View the digital menu of <?= e($tenant['restaurant_name']) ?><?= $tenant['city'] ? ', ' . e($tenant['city']) : '' ?>. Browse dishes with prices and order online. <?= e($tenant['address']) ?>">
-<meta name="keywords" content="<?= e($tenant['restaurant_name']) ?>, <?= e($tenant['restaurant_name']) ?> menu, <?= $tenant['city'] ? e($tenant['city']) . ' restaurant, ' : '' ?>online menu, order online, digital menu">
-<meta name="robots" content="index, follow">
+<?php
+$seoTitle = function_exists('menuSeoTitle') ? menuSeoTitle($tenant) : ($tenant['restaurant_name'] . ' — Menu');
+$seoDesc  = function_exists('menuSeoDescription') ? menuSeoDescription($tenant, $categories)
+            : ('View the digital menu of ' . $tenant['restaurant_name'] . '. Order online.');
+$seoRobots = function_exists('menuRobots') ? menuRobots($tenant) : 'index,follow';
+?>
+<title><?= e($seoTitle) ?></title>
+<meta name="description" content="<?= e($seoDesc) ?>">
+<meta name="keywords" content="<?= e($tenant['restaurant_name']) ?> menu, <?= $tenant['city'] ? e($tenant['city']) . ' restaurant, ' : '' ?>online menu, order online, digital menu, QR menu">
+<meta name="robots" content="<?= e($seoRobots) ?>">
 <link rel="canonical" href="<?= e($menuUrl) ?>">
 <!-- Open Graph -->
 <meta property="og:type" content="restaurant.menu">
 <meta property="og:site_name" content="<?= e($tenant['restaurant_name']) ?>">
-<meta property="og:title" content="<?= e($tenant['restaurant_name']) ?> — Menu">
-<meta property="og:description" content="Browse the menu &amp; order online from <?= e($tenant['restaurant_name']) ?>.">
+<meta property="og:title" content="<?= e($seoTitle) ?>">
+<meta property="og:description" content="<?= e($seoDesc) ?>">
 <meta property="og:url" content="<?= e($menuUrl) ?>">
 <?php if ($logoUrl): ?><meta property="og:image" content="<?= e($logoUrl) ?>"><meta name="twitter:image" content="<?= e($logoUrl) ?>"><?php endif; ?>
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<?= e($tenant['restaurant_name']) ?> — Menu">
-<meta name="twitter:description" content="Browse the menu &amp; order online from <?= e($tenant['restaurant_name']) ?>.">
-<meta property="og:locale" content="en_IN">
+<meta name="twitter:title" content="<?= e($seoTitle) ?>">
+<meta name="twitter:description" content="<?= e($seoDesc) ?>">
+<meta property="og:locale" content="<?= $lang === 'gu' ? 'gu_IN' : 'en_IN' ?>">
 <link rel="manifest" href="<?= e(BASE_URL) ?>/r/manifest.php?slug=<?= e($tenant['slug']) ?>">
 <link rel="icon" href="<?= e($logoUrl ?: BASE_URL.'/assets/img/favicon.png') ?>">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -54,16 +60,21 @@ $itemCount = 0; foreach ($categories as $c) { $itemCount += count($c['items']); 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="<?= e(BASE_URL) ?>/assets/css/app.css" rel="stylesheet">
-<!-- JSON-LD Restaurant schema -->
-<script type="application/ld+json">
-<?= json_encode([
-  '@context' => 'https://schema.org', '@type' => 'Restaurant',
-  'name' => $tenant['restaurant_name'], 'url' => $menuUrl,
-  'image' => $logoUrl, 'address' => $tenant['address'],
-  'telephone' => $tenant['mobile'],
-  'servesCuisine' => 'Indian',
-], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
-</script>
+<!-- Restaurant + Menu + Breadcrumb JSON-LD -->
+<?php
+if (function_exists('jsonldRestaurantMenu')) {
+    echo jsonldBlock(jsonldRestaurantMenu($tenant, $categories, $lang)) . "\n";
+    $bc = [['Home', absUrl('')]];
+    if (!empty($tenant['city'])) { $bc[] = [$tenant['city'], absUrl('digital-menu/' . strtolower(str_replace(' ', '-', $tenant['city'])))]; }
+    $bc[] = [$tenant['restaurant_name'], $menuUrl];
+    echo jsonldBlock(jsonldBreadcrumb($bc)) . "\n";
+} else {
+    echo '<script type="application/ld+json">' . json_encode([
+        '@context' => 'https://schema.org', '@type' => 'Restaurant',
+        'name' => $tenant['restaurant_name'], 'url' => $menuUrl,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+}
+?>
 <style>
 :root{
   --primary:<?= e($primary) ?>;--secondary:<?= e($secondary) ?>;--accent:<?= e($accent) ?>;
@@ -331,7 +342,7 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
           <?php if ($hasImg || ($canOrder && $it['is_available'])): ?>
           <div class="media <?= $hasImg?'':'noimgcol' ?>">
             <?php if ($hasImg): ?>
-              <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb" loading="lazy" alt="<?= e($L($it,'name')) ?>">
+              <img src="<?= e(mediaUrl($it['image'])) ?>" class="thumb" loading="lazy" width="96" height="96" alt="<?= e($L($it,'name') . ' at ' . $tenant['restaurant_name'] . ($tenant['city'] ? ', ' . $tenant['city'] : '')) ?>">
             <?php endif; ?>
             <?php if ($canOrder && $hasImg): ?>
               <?php if ($it['is_available']): ?>

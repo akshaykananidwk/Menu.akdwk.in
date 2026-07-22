@@ -127,8 +127,19 @@ try {
                 if (isset($_POST['whatsapp_no']))     { $data['whatsapp_no']     = trim($_POST['whatsapp_no']) ?: null; }
             }
 
+            if ($sub === 'seo' || $sub === '') {
+                if (isset($_POST['allow_indexing'])) {
+                    $data['allow_indexing'] = !empty($_POST['allow_indexing']) ? 1 : 0;
+                }
+            }
+
             if (!$data) { jsonError('Nothing to update.'); }
             db_update('tenants', $data, ['id' => $tid]);
+            // If indexing was just enabled, nudge search engines to (re)crawl the menu.
+            if (($data['allow_indexing'] ?? null) === 1 && function_exists('pingSearchEngines')) {
+                $slug = db_val('SELECT slug FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tid]);
+                if ($slug) { pingSearchEngines(publicMenuUrl($slug)); }
+            }
             logActivity('tenant', $tid, 'Updated settings (' . ($sub ?: 'all') . ')');
             jsonSuccess('Settings saved.');
             break;

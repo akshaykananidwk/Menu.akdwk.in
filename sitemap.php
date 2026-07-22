@@ -1,43 +1,27 @@
 <?php
 /**
- * Dynamic XML sitemap. Lists the marketing pages plus every live restaurant's
- * public menu, so search engines can discover and index them. Served at
- * /sitemap.xml via the .htaccess rewrite (falls back to /sitemap.php).
+ * Sitemap INDEX — points to the child sitemaps. Served at /sitemap.xml.
+ * Children: pages, restaurants (split if huge), cities, blog.
  */
 require_once __DIR__ . '/config/config.php';
 header('Content-Type: application/xml; charset=utf-8');
 
 $base = rtrim(BASE_URL, '/');
-$today = date('Y-m-d');
+$now  = date('c');
 
-$urls = [
-    ['loc' => $base . '/',            'freq' => 'weekly',  'pri' => '1.0'],
-    ['loc' => $base . '/signup.php',  'freq' => 'monthly', 'pri' => '0.8'],
-    ['loc' => $base . '/client/login.php', 'freq' => 'yearly', 'pri' => '0.3'],
-];
+$children = ['sitemap-pages.xml', 'sitemap-cities.xml', 'sitemap-blog.xml'];
 
-// Every active restaurant's public menu.
-try {
-    $rows = db_all('SELECT slug, created_at FROM ' . tbl('tenants') . "
-                    WHERE status = 'active' AND slug <> '' ORDER BY id DESC LIMIT 5000");
-    foreach ($rows as $r) {
-        $urls[] = [
-            'loc'     => $base . '/r/' . rawurlencode($r['slug']),
-            'freq'    => 'weekly',
-            'pri'     => '0.7',
-            'lastmod' => !empty($r['created_at']) ? date('Y-m-d', strtotime($r['created_at'])) : $today,
-        ];
-    }
-} catch (Throwable $e) { /* table missing / not installed — just emit static URLs */ }
+// Restaurants may need splitting into 40k chunks.
+try { $rc = (int)db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . " WHERE status='active' AND allow_indexing=1 AND slug<>''"); }
+catch (Throwable $e) { $rc = 0; }
+$chunks = max(1, (int)ceil($rc / 40000));
+for ($i = 1; $i <= $chunks; $i++) {
+    $children[] = $chunks === 1 ? 'sitemap-restaurants.xml' : "sitemap-restaurants-$i.xml";
+}
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-foreach ($urls as $u) {
-    echo "  <url>\n";
-    echo '    <loc>' . htmlspecialchars($u['loc'], ENT_XML1) . "</loc>\n";
-    echo '    <lastmod>' . ($u['lastmod'] ?? $today) . "</lastmod>\n";
-    echo '    <changefreq>' . $u['freq'] . "</changefreq>\n";
-    echo '    <priority>' . $u['pri'] . "</priority>\n";
-    echo "  </url>\n";
+echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+foreach ($children as $c) {
+    echo "  <sitemap>\n    <loc>" . htmlspecialchars($base . '/' . $c, ENT_XML1) . "</loc>\n    <lastmod>$now</lastmod>\n  </sitemap>\n";
 }
-echo '</urlset>';
+echo '</sitemapindex>';

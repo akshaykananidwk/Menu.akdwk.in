@@ -5,6 +5,27 @@
     Header set X-Content-Type-Options "nosniff"
     Header set X-Frame-Options "SAMEORIGIN"
     Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    # HSTS (only sent over HTTPS)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+</IfModule>
+
+# ---- GZIP / compression ----
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/xml application/json application/javascript application/x-javascript image/svg+xml
+</IfModule>
+
+# ---- Browser caching for static assets (1 year, filenames are versioned) ----
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
 # ---- Disable directory listing ----
@@ -21,14 +42,37 @@ Options -Indexes
 
 RewriteEngine On
 
-# Force install if not yet installed handled in PHP; here we do clean URLs.
+# ---- Custom 404 ----
+ErrorDocument 404 /404.php
 
-# ---- Public menu clean URL: /r/{slug} ----
-# Directory r/index.php already handles ?slug= via PATH_INFO fallback.
+# ---- Force HTTPS (single canonical scheme) ----
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# ---- SEO: dynamic sitemaps + robots + IndexNow key ----
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+RewriteRule ^sitemap-pages\.xml$ sitemap-pages.php [L]
+RewriteRule ^sitemap-cities\.xml$ sitemap-cities.php [L]
+RewriteRule ^sitemap-blog\.xml$ sitemap-blog.php [L]
+RewriteRule ^sitemap-restaurants\.xml$ sitemap-restaurants.php [L]
+RewriteRule ^sitemap-restaurants-([0-9]+)\.xml$ sitemap-restaurants.php?p=$1 [L]
+RewriteRule ^robots\.txt$ robots.php [L]
+RewriteRule ^([a-f0-9]{32})\.txt$ indexnow.php [L]
+
+# ---- Programmatic SEO landing pages ----
+RewriteRule ^digital-menu/([a-z0-9\-]+)/?$ digital-menu.php?slug=$1 [L,QSA]
+RewriteRule ^qr-menu-for/([a-z0-9\-]+)/?$ qr-menu-for.php?type=$1 [L,QSA]
+
+# ---- Blog clean URLs ----
+RewriteRule ^blog/?$ blog.php [L,QSA]
+RewriteRule ^blog/category/([a-z0-9\-]+)/?$ blog.php?category=$1 [L,QSA]
+RewriteRule ^blog/([a-z0-9\-]+)/?$ blog.php?slug=$1 [L,QSA]
+RewriteRule ^feed\.xml$ feed.php [L]
+
+# ---- Public menu clean URL: /r/{slug} and category ----
 RewriteRule ^r/([A-Za-z0-9\-]+)/?$ r/index.php?slug=$1 [L,QSA]
+RewriteRule ^r/([A-Za-z0-9\-]+)/menu/([A-Za-z0-9\-]+)/?$ r/index.php?slug=$1&category=$2 [L,QSA]
 
 # ---- Table QR clean URL: /t/{token} ----
 RewriteRule ^t/([A-Za-z0-9]+)/?$ r/index.php?table=$1 [L,QSA]
-
-# ---- SEO: serve the dynamic sitemap at /sitemap.xml ----
-RewriteRule ^sitemap\.xml$ sitemap.php [L]
