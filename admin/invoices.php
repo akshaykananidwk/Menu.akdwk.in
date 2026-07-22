@@ -124,7 +124,7 @@ require __DIR__ . '/_header.php';
 
 <!-- Generate invoice modal -->
 <div class="modal fade" id="genModal" tabindex="-1">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-dialog-scrollable">
     <form class="modal-content" method="post">
       <?= csrfField() ?>
       <input type="hidden" name="action" value="generate">
