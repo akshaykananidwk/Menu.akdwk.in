@@ -547,6 +547,29 @@ function renderCart(){
   document.getElementById('cartbar').classList.toggle('show',count>0);
 }
 function cartSubtotal(){return cart.reduce((s,c)=>s+c.qty*c.price,0);}
+// ---- Reorder last order (this device) ----
+function maybeShowReorder(){
+  let last; try{ last=JSON.parse(localStorage.getItem('akLast_'+SLUG)||'null'); }catch(e){ return; }
+  if(!last||!last.items||!last.items.length) return;
+  if(last.at && (Date.now()-last.at) > 30*864e5) return;           // ignore older than 30 days
+  const names=last.items.slice(0,3).map(i=>i.name).join(', ')+(last.items.length>3?'…':'');
+  const bar=document.createElement('div');
+  bar.style.cssText='margin:12px 16px;padding:11px 14px;border-radius:14px;background:#fff;border:1px solid var(--line,#e8eaf1);'+
+    'box-shadow:var(--shadow-sm,0 4px 14px rgba(20,24,36,.06));display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  bar.innerHTML='<div style="min-width:0"><div style="font-weight:700;font-size:.86rem"><i class="bi bi-arrow-repeat"></i> '+
+    '<?= $lang==='gu' ? 'ફરી ઓર્ડર કરો' : 'Order again' ?></div>'+
+    '<div style="font-size:.74rem;color:var(--muted,#8a90a2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(names)+'</div></div>'+
+    '<button id="reorderBtn" style="flex-shrink:0;background:var(--primary,#e63946);color:#fff;border:0;border-radius:20px;padding:7px 16px;font-size:.8rem;font-weight:700;cursor:pointer"><?= $lang==='gu' ? 'ઉમેરો' : 'Add' ?></button>';
+  const main=document.querySelector('main'); if(main) main.insertBefore(bar,main.firstChild);
+  bar.querySelector('#reorderBtn').addEventListener('click',()=>{
+    cart=last.items.map(i=>({id:i.id,name:i.name,variant:i.variant||null,addons:i.addons||[],qty:i.qty||1,price:i.price,notes:i.notes||''}));
+    renderCart(); openCart();
+    const n=document.getElementById('custName'), m=document.getElementById('custMobile');
+    if(n&&last.name) n.value=last.name; if(m&&last.mobile) m.value=last.mobile;
+    bar.remove();
+  });
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function openCart(){
   if(!cart.length){couponCode='';couponDiscount=0;return;}
   const rows=cart.map((c,i)=>`<div class="cart-line">
@@ -608,7 +631,10 @@ function placeOrder(){
   const okb=document.getElementById('modalOk');okb.disabled=true;okb.textContent='Placing…';
   fetch('<?= e(BASE_URL) ?>/api/order.php?action=place',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(r=>r.json()).then(d=>{
-      if(d.status==='success'){bsModal.hide();cart=[];couponCode='';couponDiscount=0;renderCart();
+      if(d.status==='success'){
+        try{ localStorage.setItem('akLast_'+SLUG, JSON.stringify({items:cart, name:name,
+          mobile:document.getElementById('custMobile').value, at:Date.now()})); }catch(e){}
+        bsModal.hide();cart=[];couponCode='';couponDiscount=0;renderCart();
         showFeedback(d.data.order_id);}
       else{alert(d.message||'Order failed');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';}})
     .catch(()=>{alert('Network error');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';});
@@ -629,6 +655,7 @@ window.rate=function(stars,orderId){
   if(stars>=4&&rev){setTimeout(()=>location.href=rev,700);}  // smart routing: happy → Google review
   else{setTimeout(()=>{bsModal.hide();alert('Thank you for your feedback!');},700);}
 }
+maybeShowReorder();
 <?php endif; ?>
 
 // ---- Bottom-sheet modal helper ----
