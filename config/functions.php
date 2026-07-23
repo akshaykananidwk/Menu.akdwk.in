@@ -599,6 +599,59 @@ function logAi(?int $tenantId, string $type, int $tokens, string $status): void 
     db_insert('ai_logs', ['tenant_id' => $tenantId, 'type' => $type, 'tokens' => $tokens, 'status' => $status]);
 }
 
+/**
+ * Apply any pending updates/*.sql not yet recorded in the `migrations` table.
+ * Idempotent + best-effort: wrapped so it can NEVER break the page. Runs at most
+ * once per request. Called from the admin panel and the client panel so new
+ * tables/columns appear as soon as an owner or admin opens their dashboard.
+ */
+function ak_run_pending_migrations(): void {
+    static $ran = false;
+    if ($ran) { return; }
+    $ran = true;
+    global $pdo;
+    try {
+        if (!isset($pdo)) { return; }
+        $dir = (defined('ROOT_PATH') ? ROOT_PATH : dirname(__DIR__)) . '/updates';
+        if (!is_dir($dir)) { return; }
+        $prefix = defined('DB_PREFIX') ? DB_PREFIX : '';
+
+        $files = [];
+        foreach (glob($dir . '/*.sql') ?: [] as $f) {
+            $base = basename($f);
+            if (!preg_match('/^(\d+\.\d+\.\d+)\.sql$/', $base, $m)) { continue; }
+            $files[] = ['file' => $f, 'base' => $base, 'ver' => $m[1]];
+        }
+        usort($files, fn($a, $b) => version_compare($a['ver'], $b['ver']));
+
+        foreach ($files as $mig) {
+            $done = (int)db_val('SELECT COUNT(*) FROM ' . tbl('migrations') . ' WHERE file_name = :f', [':f' => $mig['base']]);
+            if ($done > 0) { continue; }
+            $raw = @file_get_contents($mig['file']);
+            if ($raw === false) { continue; }
+            $raw = str_replace('{PREFIX}', $prefix, $raw);
+
+            $buf = ''; $stmts = [];
+            foreach (preg_split('/\r\n|\n|\r/', $raw) as $line) {
+                $t = trim($line);
+                if ($t === '' || strncmp($t, '--', 2) === 0) { continue; }
+                $buf .= $line . "\n";
+                if (substr(rtrim($line), -1) === ';') { $stmts[] = rtrim(rtrim($buf), ";\n "); $buf = ''; }
+            }
+            if (trim($buf) !== '') { $stmts[] = rtrim(trim($buf), ';'); }
+
+            try {
+                foreach ($stmts as $stmt) { if (trim($stmt) !== '') { $pdo->exec($stmt); } }
+                db_insert('migrations', ['version' => $mig['ver'], 'file_name' => $mig['base']]);
+            } catch (Throwable $e) {
+                error_log('run_pending_migrations ' . $mig['base'] . ' failed: ' . $e->getMessage());
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('ak_run_pending_migrations error: ' . $e->getMessage());
+    }
+}
+
 // =============================================================================
 // LOYALTY POINTS  (1 point = 1 currency unit; append-only ledger, balance = SUM)
 // =============================================================================

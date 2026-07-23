@@ -1,8 +1,10 @@
 {
-    "version": "1.8.0",
+    "version": "1.8.1",
     "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "Fix: opening /app/waiter, /app/kitchen or /app/reception directly no longer shows 'Page not found' — those URLs now redirect to the right screen (the app itself already routes there after login)",
+        "New database updates now apply automatically when the restaurant owner opens their panel too (not only the Super Admin) — so the Property Code and Reception role appear without waiting for an admin login",
         "Master Staff App (installable): open menu.akdwk.in/app on any phone or tablet, tap your role — Waiter, Kitchen or Reception — and it shows that screen. 'Add to Home Screen' installs it like a real app (no Play Store needed); it works on both mobiles and tablets",
         "One simple 4-digit Property Code per restaurant for staff login: your team just enters the Property Code (shown in Staff → Staff App) + their 4-digit PIN. The old restaurant-code/slug login still works too",
         "New Reception role: a front-desk / captain screen that can take orders for any table and run the floor — advance live orders, clear table-service calls (Call Waiter/Bill) and confirm today's reservations — but cannot collect payment (that stays with the owner). Add reception staff in Staff with their own PIN",

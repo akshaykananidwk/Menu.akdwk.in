@@ -5,6 +5,7 @@
  */
 require_once dirname(__DIR__) . '/config/config.php';
 requireClient();
+ak_run_pending_migrations();   // self-heal: apply any pending DB updates on panel load
 
 $tenant    = currentTenant();
 $pageTitle = $pageTitle ?? 'Dashboard';
