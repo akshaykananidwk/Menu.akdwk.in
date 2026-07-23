@@ -265,6 +265,9 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
     <?php if ($tableNo): ?><span class="chip-i"><i class="bi bi-grid-3x3-gap-fill"></i> Table <?= e($tableNo) ?></span><?php endif; ?>
     <?php if ($itemCount): ?><span class="chip-i"><i class="bi bi-egg-fried"></i> <?= (int)$itemCount ?> <?= __('items') ?></span><?php endif; ?>
   </div>
+  <?php if ($canOrder): ?>
+  <div class="act-row"><button type="button" class="act" onclick="serviceSheet()"><i class="bi bi-bell-fill"></i> <?= $lang==='gu'?'વેઈટર બોલાવો':'Call Waiter' ?></button></div>
+  <?php endif; ?>
   <?php if ($tenant['mobile'] || $tenant['whatsapp_no'] || $tenant['maps_url'] || $tenant['google_review_url']): ?>
   <div class="act-row">
     <?php if ($tenant['mobile']): ?><a class="act" href="tel:<?= e($tenant['mobile']) ?>"><i class="bi bi-telephone-fill"></i><?= __('call') ?></a><?php endif; ?>
@@ -598,6 +601,23 @@ function openCart(){
   if(couponCode){ applyCoupon(true); }
   loyaltyRedeem=0; loyaltyState.on=false; loyaltyCheck();
 }
+// ---- Table service (call waiter / bill / water / clean) ----
+function serviceSheet(){
+  const gu = <?= $lang==='gu' ? 'true':'false' ?>;
+  const opts=[['call','🔔',gu?'વેઈટર બોલાવો':'Call Waiter'],['bill','🧾',gu?'બિલ મંગાવો':'Ask for Bill'],
+              ['water','💧',gu?'પાણી':'Water'],['clean','🧹',gu?'ટેબલ સાફ કરો':'Clean Table']];
+  const html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+    opts.map(o=>`<button type="button" class="btn btn-light border" style="padding:16px 8px;font-weight:600" onclick="callService('${o[0]}')"><div style="font-size:1.6rem">${o[1]}</div>${o[2]}</button>`).join('')+'</div>';
+  showModal(gu?'સેવા માટે':'Need something?',html,null);
+}
+window.callService=function(type){
+  fetch('<?= e(BASE_URL) ?>/api/service.php?action=request',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({slug:SLUG,table:TABLE_TOKEN,type:type})}).then(r=>r.json()).then(()=>{
+      const gu=<?= $lang==='gu' ? 'true':'false' ?>;
+      showModal(gu?'થઈ ગયું!':'Done!','<div class="text-center py-3"><div style="font-size:2.6rem">✅</div><p class="mt-2 mb-0">'+
+        (gu?'સ્ટાફને જાણ કરી દીધી છે. થોડી વાર રાહ જુઓ.':'Our staff has been notified. Please wait a moment.')+'</p></div>',null);
+    }).catch(()=>alert('Please try again.'));
+};
 // ---- Loyalty points in the cart ----
 let loyaltyTimer;
 function loyaltyCheck(){

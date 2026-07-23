@@ -28,6 +28,11 @@ body{margin:0}
 .kot-note{color:#f1a208;font-weight:600;font-size:.9rem}
 .kot-time{font-variant-numeric:tabular-nums}
 .kot-btn{min-height:46px;font-weight:600}
+.svc-bar{display:flex;flex-wrap:wrap;gap:10px;padding:0 16px}
+.svc-bar:not(:empty){padding:14px 16px}
+.svc-pill{display:flex;align-items:center;gap:10px;background:#f1a208;color:#161b22;font-weight:700;border-radius:12px;padding:10px 14px;box-shadow:0 4px 14px rgba(241,162,8,.35)}
+.svc-pill.bill{background:#e23744;color:#fff}
+.svc-pill button{border:0;background:rgba(0,0,0,.18);color:inherit;border-radius:8px;padding:5px 10px;font-weight:700;cursor:pointer}
 </style>
 </head><body class="kot-screen">
 
@@ -42,6 +47,7 @@ body{margin:0}
   </div>
 </div>
 
+<div id="svcBar" class="svc-bar"></div>
 <div id="grid" class="kot-grid"></div>
 <div id="empty" class="text-center text-secondary py-5" style="display:none"><i class="bi bi-check2-circle" style="font-size:3rem"></i><p>No active tickets. All caught up!</p></div>
 
@@ -125,7 +131,32 @@ window.adv=function(id,status){
     body:body.toString()}).then(r=>r.json()).then(()=>poll());
 };
 
-poll();
+// ---- Table service requests ----
+const SVCLABEL={call:'🔔 Call Waiter',bill:'🧾 Bring Bill',water:'💧 Water',clean:'🧹 Clean Table'};
+let lastSvcId=0, svcFirst=true;
+function pollSvc(){
+  fetch(B+'/api/service.php?action=list',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(r=>r.json()).then(res=>{
+      if(!res||res.status!=='success') return;
+      const reqs=res.data.requests||[];
+      const maxId=reqs.reduce((m,r)=>Math.max(m,+r.id),0);
+      if(!svcFirst && maxId>lastSvcId && document.getElementById('soundToggle').checked){
+        playChime(); setTimeout(()=>speakHindi('टेबल से सेवा के लिए बुलाया गया है, कृपया देख लीजिए।'),550);
+      }
+      lastSvcId=Math.max(lastSvcId,maxId); svcFirst=false;
+      document.getElementById('svcBar').innerHTML=reqs.map(r=>
+        `<div class="svc-pill \${r.type==='bill'?'bill':''}"><span>\${r.table_no?('T'+esc(r.table_no)+' · '):''}\${SVCLABEL[r.type]||esc(r.type)}</span>`+
+        `<button onclick="svcDone(\${r.id})">Done</button></div>`).join('');
+    }).catch(()=>{});
+}
+window.svcDone=function(id){
+  fetch(B+'/api/service.php?action=done',{method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'XMLHttpRequest','X-CSRF-Token':CSRF},
+    body:new URLSearchParams({id:id,csrf_token:CSRF}).toString()}).then(r=>r.json()).then(()=>pollSvc());
+};
+
+poll(); pollSvc();
 setInterval(poll,5000);
+setInterval(pollSvc,5000);
 </script>
 </body></html>

@@ -33,6 +33,8 @@ $currency = $tenant['currency'] ?: '₹';
   </div>
 </div>
 
+<div id="svcBar" class="d-flex flex-wrap gap-2 mb-2"></div>
+
 <!-- Simplified POS board: Active + Completed, with a collapsible Cancelled column. -->
 <div class="orders-board d-flex gap-3 pb-2" id="board" style="overflow-x:auto">
   <div class="kanban-col flex-shrink-0" style="width:340px" data-col="active">
@@ -476,8 +478,29 @@ document.getElementById('soundToggle').addEventListener('change', function(){
   else if(window.speechSynthesis){ speechSynthesis.cancel(); }
 });
 
-poll();
+// ---- Table service requests ----
+const SVCLABEL={call:'🔔 Call Waiter',bill:'🧾 Bring Bill',water:'💧 Water',clean:'🧹 Clean Table'};
+let lastSvcId=0, svcFirst=true;
+function pollSvc(){
+  AK.get(CFG.base+'/api/service.php?action=list').then(res=>{
+    if(!res||res.status!=='success') return;
+    const reqs=res.data.requests||[];
+    const maxId=reqs.reduce((m,r)=>Math.max(m,+r.id),0);
+    if(!svcFirst && maxId>lastSvcId && document.getElementById('soundToggle').checked){
+      playChime(); setTimeout(()=>speakHindi('टेबल से सेवा के लिए बुलाया गया है, कृपया देख लीजिए।'),550);
+    }
+    lastSvcId=Math.max(lastSvcId,maxId); svcFirst=false;
+    document.getElementById('svcBar').innerHTML=reqs.map(r=>
+      `<div class="alert \${r.type==='bill'?'alert-danger':'alert-warning'} d-flex align-items-center gap-2 mb-0 py-2 px-3">`+
+      `<span class="fw-semibold">\${r.table_no?('Table '+esc(r.table_no)+' · '):''}\${SVCLABEL[r.type]||esc(r.type)}</span>`+
+      `<button class="btn btn-sm btn-dark py-0" onclick="svcDone(\${r.id})">Done</button></div>`).join('');
+  });
+}
+window.svcDone=function(id){ AK.post(CFG.base+'/api/service.php?action=done',{id:id}).then(()=>pollSvc()); };
+
+poll(); pollSvc();
 setInterval(poll, 5000);
+setInterval(pollSvc, 5000);
 </script>
 HTML;
 endif;
