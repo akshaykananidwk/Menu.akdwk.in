@@ -1,8 +1,12 @@
 {
-    "version": "1.6.0",
+    "version": "1.7.0",
     "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "Call Waiter from the table: the menu now has a 'Call Waiter' button (Call / Bring Bill / Water / Clean table). Requests pop up instantly on the Kitchen board and the owner's Orders board with a chime + Hindi voice alert and a one-tap 'Done'",
+        "AI Business Advisor (client → AI Advisor): on demand it reads your last 30 days — sales, best & slow items, busiest hours/days, repeat customers — and gives 5-7 concrete, practical suggestions to grow revenue, in Gujarati + English (metered under AI cost)",
+        "Digital TV Menu Board (/r/tv.php?slug=…): a full-screen, auto-scrolling menu for a TV or screen in your shop, in your brand colours; it refreshes itself so menu edits appear automatically. Open it from the dashboard's 'TV Menu Board' tile",
+        "Table Reservations: guests can 'Book a Table' from the menu (name, mobile, date, time, party size); you get a WhatsApp alert, manage bookings in the new client 'Reservations' page, and the guest is auto-notified on WhatsApp when you confirm or cancel",
         "AI Menu Chatbot (customer-facing): a floating assistant on every menu answers diners' questions — “what's Jain?”, “anything under ₹200?”, “what's your bestseller?” — grounded only in that restaurant's own menu, in English/Hindi/Gujarati. Admin-gated (Settings → AI) with a per-restaurant daily question cap so cost stays controlled; every call is metered under AI Usage",
         "Reorder in one tap: after a diner orders, the menu remembers it on their device and shows an 'Order again' bar next visit that refills the cart and pre-fills their details (server still re-prices everything, so it's always accurate)",
         "Loyalty Points & Rewards: customers earn points on every order (by mobile number) and redeem them for a discount on a future bill. Owners set the earn rate, minimum-to-redeem and a max-discount cap in the new client 'Loyalty' page, which also lists members and balances. The menu shows a diner's points and an opt-in 'use points' toggle at checkout, and confirms points earned on the thank-you screen",

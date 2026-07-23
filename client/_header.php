@@ -57,6 +57,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <?= cnav('orders',$activeNav,'/client/orders.php','bi-receipt-cutoff','Orders',$canOrder) ?>
       <?= cnav('coupons',$activeNav,'/client/coupons.php','bi-ticket-perforated','Coupons',$canOrder) ?>
       <?= cnav('tables',$activeNav,'/client/tables.php','bi-grid-3x3-gap','Tables',$canOrder) ?>
+      <?= cnav('reservations_book',$activeNav,'/client/reservations.php','bi-calendar-check','Reservations',$canOrder) ?>
       <?= cnav('staff',$activeNav,'/client/staff.php','bi-people','Staff') ?>
       <?= cnav('feedback',$activeNav,'/client/feedback.php','bi-star','Feedback') ?>
       <?= cnav('customers',$activeNav,'/client/customers.php','bi-person-vcard','Customers',$canOrder) ?>

@@ -266,7 +266,10 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
     <?php if ($itemCount): ?><span class="chip-i"><i class="bi bi-egg-fried"></i> <?= (int)$itemCount ?> <?= __('items') ?></span><?php endif; ?>
   </div>
   <?php if ($canOrder): ?>
-  <div class="act-row"><button type="button" class="act" onclick="serviceSheet()"><i class="bi bi-bell-fill"></i> <?= $lang==='gu'?'વેઈટર બોલાવો':'Call Waiter' ?></button></div>
+  <div class="act-row">
+    <button type="button" class="act" onclick="serviceSheet()"><i class="bi bi-bell-fill"></i> <?= $lang==='gu'?'વેઈટર બોલાવો':'Call Waiter' ?></button>
+    <button type="button" class="act" onclick="bookTable()"><i class="bi bi-calendar-check"></i> <?= $lang==='gu'?'ટેબલ બુક કરો':'Book a Table' ?></button>
+  </div>
   <?php endif; ?>
   <?php if ($tenant['mobile'] || $tenant['whatsapp_no'] || $tenant['maps_url'] || $tenant['google_review_url']): ?>
   <div class="act-row">
@@ -600,6 +603,34 @@ function openCart(){
   // Re-validate any previously applied code against the current subtotal.
   if(couponCode){ applyCoupon(true); }
   loyaltyRedeem=0; loyaltyState.on=false; loyaltyCheck();
+}
+// ---- Book a table ----
+function bookTable(){
+  const gu = <?= $lang==='gu' ? 'true':'false' ?>;
+  const today = new Date().toISOString().slice(0,10);
+  const html=`<div class="sheet-sec"><span class="lbl">${gu?'નામ':'Your name'}</span><input id="rvName" class="fld"></div>
+    <div class="sheet-sec"><span class="lbl">${gu?'મોબાઈલ':'Mobile number'}</span><input id="rvMobile" class="fld" inputmode="numeric"></div>
+    <div class="d-flex gap-2">
+      <div class="sheet-sec" style="flex:1"><span class="lbl">${gu?'તારીખ':'Date'}</span><input id="rvDate" type="date" class="fld" min="${today}" value="${today}"></div>
+      <div class="sheet-sec" style="flex:1"><span class="lbl">${gu?'સમય':'Time'}</span><input id="rvTime" type="time" class="fld"></div>
+      <div class="sheet-sec" style="width:90px"><span class="lbl">${gu?'લોકો':'Guests'}</span><input id="rvPax" type="number" min="1" max="50" value="2" class="fld"></div>
+    </div>
+    <div class="sheet-sec"><span class="lbl">${gu?'નોંધ (વૈકલ્પિક)':'Note (optional)'}</span><input id="rvNote" class="fld" placeholder="${gu?'દા.ત. બર્થડે, બારી પાસે':'e.g. birthday, window seat'}"></div>`;
+  showModal(gu?'ટેબલ બુક કરો':'Book a Table',html,function(){
+    const name=document.getElementById('rvName').value.trim();
+    const mobile=(document.getElementById('rvMobile').value||'').replace(/\D/g,'');
+    const date=document.getElementById('rvDate').value, time=document.getElementById('rvTime').value;
+    if(!name){ alert(gu?'નામ લખો':'Enter your name'); return; }
+    if(mobile.length<10){ alert(gu?'સાચો મોબાઈલ નંબર લખો':'Enter a valid mobile number'); return; }
+    if(!time){ alert(gu?'સમય પસંદ કરો':'Choose a time'); return; }
+    const ok=document.getElementById('modalOk'); ok.disabled=true; ok.textContent=gu?'મોકલી રહ્યા છીએ…':'Sending…';
+    fetch('<?= e(BASE_URL) ?>/api/reserve.php?action=create',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({slug:SLUG,table:TABLE_TOKEN,name:name,mobile:mobile,date:date,time:time,party_size:document.getElementById('rvPax').value,note:document.getElementById('rvNote').value})})
+      .then(r=>r.json()).then(res=>{
+        if(res&&res.status==='success'){ showModal(gu?'થઈ ગયું!':'Requested!','<div class="text-center py-3"><div style="font-size:2.6rem">📅</div><p class="mt-2 mb-0">'+esc(res.message||'')+'</p></div>',null); }
+        else { alert((res&&res.message)||'Please try again.'); ok.disabled=false; ok.textContent=gu?'બુક કરો':'Book'; }
+      }).catch(()=>{ alert('Network error'); ok.disabled=false; ok.textContent=gu?'બુક કરો':'Book'; });
+  },gu?'બુક કરો':'Book');
 }
 // ---- Table service (call waiter / bill / water / clean) ----
 function serviceSheet(){
