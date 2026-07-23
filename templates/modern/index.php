@@ -684,13 +684,54 @@ function showFeedback(orderId,data){
   if(data.points_used>0){ pts+=`<div style="color:#1a7f37;font-weight:600">🎁 ${data.points_used} points redeemed</div>`; }
   if(data.points_earned>0){ pts+=`<div style="background:#fff6e5;border:1px solid #ffe0a3;border-radius:12px;padding:8px 12px;margin:8px auto;display:inline-block">⭐ You earned <b>${data.points_earned}</b> points!`+
     (data.points_balance!=null?` <span style="color:#8a90a2">Balance: ${data.points_balance}</span>`:'')+`</div>`; }
+  let payBtn='';
+  if(data.pay_online && data.total>0){
+    payBtn=`<button id="payNowBtn" class="btn btn-success w-100 mb-3" style="padding:12px;font-weight:700;font-size:1rem"
+      onclick="payOnline(${orderId},${Number(data.total)})"><i class="bi bi-credit-card"></i> Pay ${money(data.total)} Online</button>
+      <div class="text-muted small mb-2" style="margin-top:-6px">or pay at the counter</div>`;
+  }
   const html=`<div class="text-center py-2">
     <div style="font-size:3rem;line-height:1">🎉</div>
     <h5 class="fw-bold mt-2"><?= __('order_placed') ?></h5>
     ${pts}
+    ${payBtn}
     <p class="text-muted mb-3"><?= __('rate_experience') ?></p>
     <div class="stars-wrap" id="stars">${[1,2,3,4,5].map(s=>`<i class="bi bi-star star" data-s="${s}" onclick="rate(${s},${orderId})"></i>`).join('')}</div></div>`;
   showModal('Thank you!',html,null);
+}
+// ---- Diner online payment (Razorpay) ----
+function loadRzp(){ return new Promise((res,rej)=>{
+  if(window.Razorpay) return res();
+  const s=document.createElement('script'); s.src='https://checkout.razorpay.com/v1/checkout.js';
+  s.onload=res; s.onerror=()=>rej(new Error('load')); document.head.appendChild(s); }); }
+function payOnline(orderId,total){
+  const btn=document.getElementById('payNowBtn'); if(btn){ btn.disabled=true; btn.textContent='Loading…'; }
+  loadRzp().then(()=>
+    fetch('<?= e(BASE_URL) ?>/api/pay.php?action=create_order',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({slug:SLUG,table:TABLE_TOKEN,order_id:orderId})}).then(r=>r.json())
+  ).then(res=>{
+    if(!res||res.status!=='success'){ alert((res&&res.message)||'Could not start payment.'); if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-credit-card"></i> Pay '+money(total)+' Online';} return; }
+    const d=res.data;
+    const rzp=new Razorpay({
+      key:d.key_id, order_id:d.order_id, amount:d.amount, currency:d.currency, name:d.name,
+      description:'Order payment', prefill:d.prefill||{},
+      theme:{color:'<?= e($tenant['primary_color'] ?: '#e63946') ?>'},
+      handler:function(resp){ verifyPay(orderId,resp,total); },
+      modal:{ondismiss:function(){ if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-credit-card"></i> Pay '+money(total)+' Online';}}}
+    });
+    rzp.on('payment.failed',function(){ alert('Payment failed. You can try again or pay at the counter.'); if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-credit-card"></i> Pay '+money(total)+' Online';} });
+    rzp.open();
+  }).catch(()=>{ alert('Could not load the payment gateway.'); if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-credit-card"></i> Pay '+money(total)+' Online';} });
+}
+function verifyPay(orderId,resp,total){
+  fetch('<?= e(BASE_URL) ?>/api/pay.php?action=verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({slug:SLUG,table:TABLE_TOKEN,order_id:orderId,
+      razorpay_order_id:resp.razorpay_order_id,razorpay_payment_id:resp.razorpay_payment_id,razorpay_signature:resp.razorpay_signature})})
+    .then(r=>r.json()).then(res=>{
+      const btn=document.getElementById('payNowBtn');
+      if(res&&res.status==='success'){ if(btn){ btn.className='btn btn-success w-100 mb-3'; btn.disabled=true; btn.innerHTML='<i class="bi bi-check-circle-fill"></i> Paid ✓'; } }
+      else { alert((res&&res.message)||'Payment could not be verified.'); if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-credit-card"></i> Pay '+money(total)+' Online';} }
+    }).catch(()=>alert('Could not confirm payment. If money was deducted, please tell the restaurant.'));
 }
 window.rate=function(stars,orderId){
   document.querySelectorAll('.star').forEach((el,i)=>el.className='bi '+(i<stars?'bi-star-fill':'bi-star')+' star');

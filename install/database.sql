@@ -780,6 +780,15 @@ CREATE TABLE `{PREFIX}loyalty_ledger` (
   KEY `idx_tenant_created` (`tenant_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `{PREFIX}tenant_payment_settings` (
+  `tenant_id` INT NOT NULL,
+  `razorpay_enabled` TINYINT(1) DEFAULT 0,
+  `razorpay_key_id` VARCHAR(80) DEFAULT NULL,
+  `razorpay_key_secret` VARCHAR(120) DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

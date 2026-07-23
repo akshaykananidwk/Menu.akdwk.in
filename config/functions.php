@@ -629,6 +629,22 @@ function loyaltyBalance(int $tenantId, string $mobile): int {
     } catch (Throwable $e) { return 0; }
 }
 
+/** Per-restaurant online-payment (Razorpay) config. Defensive; never throws. */
+function tenantPaymentConfig(int $tenantId): array {
+    $d = ['razorpay_enabled' => false, 'key_id' => '', 'key_secret' => ''];
+    try {
+        $row = db_one('SELECT * FROM ' . tbl('tenant_payment_settings') . ' WHERE tenant_id = :t', [':t' => $tenantId]);
+    } catch (Throwable $e) { return $d; }
+    if (!$row) { return $d; }
+    $keyId  = trim((string)($row['razorpay_key_id'] ?? ''));
+    $secret = trim((string)($row['razorpay_key_secret'] ?? ''));
+    return [
+        'razorpay_enabled' => (int)$row['razorpay_enabled'] === 1 && $keyId !== '' && $secret !== '',
+        'key_id'           => $keyId,
+        'key_secret'       => $secret,
+    ];
+}
+
 /** Append a ledger entry (earn: +points, redeem: -points). Never throws. */
 function loyaltyAdd(int $tenantId, string $mobile, int $points, string $type, ?int $orderId = null, string $note = ''): void {
     $mobile = preg_replace('/[^0-9]/', '', $mobile);

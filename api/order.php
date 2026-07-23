@@ -237,9 +237,12 @@ try {
                 }
             } catch (Throwable $e) { error_log('loyalty award: ' . $e->getMessage()); }
 
+            $payCap = tenantPaymentConfig($tid);
             jsonSuccess('Order placed successfully.', [
                 'order_id'       => $orderId,
                 'order_no'       => $orderNo,
+                'total'          => $total,
+                'pay_online'     => ($payCap['razorpay_enabled'] && $total > 0),
                 'points_earned'  => $pointsEarned,
                 'points_used'    => $pointsUsed,
                 'points_balance' => $pointsBalance,

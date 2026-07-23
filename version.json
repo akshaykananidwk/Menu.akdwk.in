@@ -1,8 +1,12 @@
 {
-    "version": "1.5.0",
+    "version": "1.6.0",
     "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "AI Menu Chatbot (customer-facing): a floating assistant on every menu answers diners' questions — “what's Jain?”, “anything under ₹200?”, “what's your bestseller?” — grounded only in that restaurant's own menu, in English/Hindi/Gujarati. Admin-gated (Settings → AI) with a per-restaurant daily question cap so cost stays controlled; every call is metered under AI Usage",
+        "Reorder in one tap: after a diner orders, the menu remembers it on their device and shows an 'Order again' bar next visit that refills the cart and pre-fills their details (server still re-prices everything, so it's always accurate)",
+        "Loyalty Points & Rewards: customers earn points on every order (by mobile number) and redeem them for a discount on a future bill. Owners set the earn rate, minimum-to-redeem and a max-discount cap in the new client 'Loyalty' page, which also lists members and balances. The menu shows a diner's points and an opt-in 'use points' toggle at checkout, and confirms points earned on the thank-you screen",
+        "Diner Online Payment: restaurants can accept online payment (UPI/card/netbanking via Razorpay) for the bill, settling to their OWN Razorpay account. A 'Pay Online' button appears right after ordering with the exact amount; the order auto-marks Paid once verified, and if the diner skips it the order still stays payable at the counter. Configure in the new client 'Online Payment' page",
         "Public menu now shows dietary tags: a Jain badge, a spice-level indicator (🔥 icons) and your custom item tags (e.g. 'Chef Special') — plus a new 'Jain' filter chip so diners can filter Jain items in one tap (uses the fields you already fill in the menu editor)",
         "New client 'Customers' page (CRM): every diner who orders is remembered by mobile number — see visits, total spend, average order, last visit and their favourite items, with one-tap WhatsApp and a CSV export, so you can win back regulars",
         "Reports now show a 'Busiest Hours' chart — the hour-by-hour order pattern for any date range highlights your peak hour so you can plan staff and time your offers",
