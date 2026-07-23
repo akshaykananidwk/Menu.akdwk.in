@@ -389,6 +389,81 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
 </div>
 <?php endif; ?>
 
+<?php if (!empty($chatbotOn)): ?>
+<!-- ===== MENU CHATBOT ===== -->
+<style>
+.ak-chat-fab{position:fixed;right:16px;bottom:<?= $canOrder ? '78px' : '18px' ?>;z-index:60;width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg,var(--primary,#e63946),#c92b39);color:#fff;border:0;box-shadow:0 8px 22px rgba(20,24,36,.28);
+  font-size:1.5rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;}
+.ak-chat-fab:active{transform:scale(.9);}
+.ak-chat-panel{position:fixed;right:12px;bottom:12px;z-index:70;width:min(380px,calc(100vw - 24px));height:min(560px,80vh);
+  background:#fff;border-radius:18px;box-shadow:0 18px 50px rgba(20,24,36,.32);display:none;flex-direction:column;overflow:hidden;}
+.ak-chat-panel.open{display:flex;}
+.ak-chat-head{background:linear-gradient(135deg,var(--primary,#e63946),#c92b39);color:#fff;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;}
+.ak-chat-head b{font-size:.95rem;} .ak-chat-head small{opacity:.85;font-size:.7rem;display:block;}
+.ak-chat-x{background:transparent;border:0;color:#fff;font-size:1.3rem;line-height:1;cursor:pointer;}
+.ak-chat-body{flex:1;overflow-y:auto;padding:14px;background:#f6f7fb;display:flex;flex-direction:column;gap:9px;}
+.ak-msg{max-width:82%;padding:9px 12px;border-radius:14px;font-size:.86rem;line-height:1.4;white-space:pre-wrap;}
+.ak-msg.bot{background:#fff;color:#1a1d29;border:1px solid #e8eaf1;align-self:flex-start;border-bottom-left-radius:4px;}
+.ak-msg.me{background:var(--primary,#e63946);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+.ak-msg.typing{color:#9aa1b2;font-style:italic;}
+.ak-chat-foot{display:flex;gap:8px;padding:10px;border-top:1px solid #eee;background:#fff;}
+.ak-chat-foot input{flex:1;border:1px solid #dcdfe8;border-radius:22px;padding:9px 14px;font-size:.88rem;outline:none;}
+.ak-chat-foot button{background:var(--primary,#e63946);color:#fff;border:0;width:40px;height:40px;border-radius:50%;font-size:1.05rem;cursor:pointer;flex-shrink:0;}
+.ak-chip-row{display:flex;flex-wrap:wrap;gap:6px;}
+.ak-chip{font-size:.74rem;background:#fff;border:1px solid #e2e5ee;color:#444;border-radius:16px;padding:5px 11px;cursor:pointer;}
+</style>
+<button class="ak-chat-fab" id="akChatFab" onclick="akChatToggle()" aria-label="Ask about the menu"><i class="bi bi-chat-dots-fill"></i></button>
+<div class="ak-chat-panel" id="akChatPanel">
+  <div class="ak-chat-head">
+    <div><b><?= e($tenant['restaurant_name']) ?></b><small><?= $lang==='gu' ? 'મેનુ વિશે પૂછો' : 'Ask me about the menu' ?></small></div>
+    <button class="ak-chat-x" onclick="akChatToggle()">&times;</button>
+  </div>
+  <div class="ak-chat-body" id="akChatBody">
+    <div class="ak-msg bot"><?= $lang==='gu' ? 'નમસ્તે! 🙏 મેનુ વિશે કંઈ પણ પૂછો — શાકાહારી, જૈન, ભાવ, બેસ્ટસેલર…' : 'Hi! 🙏 Ask me anything about the menu — veg, Jain, prices, bestsellers…' ?></div>
+    <div class="ak-chip-row" id="akChatChips">
+      <span class="ak-chip" onclick="akChatAsk(this.textContent)"><?= $lang==='gu' ? 'બેસ્ટસેલર શું છે?' : 'What are your bestsellers?' ?></span>
+      <span class="ak-chip" onclick="akChatAsk(this.textContent)"><?= $lang==='gu' ? 'જૈન વિકલ્પ?' : 'Any Jain options?' ?></span>
+      <span class="ak-chip" onclick="akChatAsk(this.textContent)">₹200 <?= $lang==='gu' ? 'ની અંદર?' : 'or less?' ?></span>
+    </div>
+  </div>
+  <div class="ak-chat-foot">
+    <input id="akChatInput" placeholder="<?= $lang==='gu' ? 'તમારો પ્રશ્ન…' : 'Type your question…' ?>" onkeydown="if(event.key==='Enter'){akChatAsk(this.value);}">
+    <button onclick="akChatAsk(document.getElementById('akChatInput').value)"><i class="bi bi-send-fill"></i></button>
+  </div>
+</div>
+<script>
+(function(){
+  const B='<?= e(BASE_URL) ?>', SLUG='<?= e($tenant['slug']) ?>', TOK='<?= e($tableToken ?? '') ?>';
+  let busy=false;
+  window.akChatToggle=function(){
+    const p=document.getElementById('akChatPanel'), f=document.getElementById('akChatFab');
+    const open=p.classList.toggle('open'); f.style.display=open?'none':'flex';
+    if(open) setTimeout(()=>document.getElementById('akChatInput').focus(),100);
+  };
+  function add(text,cls){
+    const b=document.getElementById('akChatBody');
+    const d=document.createElement('div'); d.className='ak-msg '+cls; d.textContent=text;
+    b.appendChild(d); b.scrollTop=b.scrollHeight; return d;
+  }
+  window.akChatAsk=function(q){
+    q=(q||'').trim(); if(!q||busy) return;
+    const chips=document.getElementById('akChatChips'); if(chips) chips.remove();
+    document.getElementById('akChatInput').value='';
+    add(q,'me'); busy=true;
+    const t=add('…','bot typing');
+    const body=new URLSearchParams({action:'ask',slug:SLUG,table:TOK,q:q});
+    fetch(B+'/api/chat.php?action=ask',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
+      .then(r=>r.json()).then(res=>{
+        t.classList.remove('typing');
+        t.textContent=(res&&res.data&&res.data.answer)?res.data.answer:(res&&res.message)||'Sorry, please try again.';
+      }).catch(()=>{t.classList.remove('typing');t.textContent='Network error — please try again.';})
+      .finally(()=>{busy=false; document.getElementById('akChatBody').scrollTop=1e9;});
+  };
+})();
+</script>
+<?php endif; ?>
+
 </div><!-- /wrap -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

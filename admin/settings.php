@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from_name',
         // AI
         'gemini_api_key', 'gemini_model', 'gemini_monthly_limit', 'ai_cost_per_call',
+        'ai_chatbot_enabled', 'ai_chatbot_daily_cap',
         // Payments
         'razorpay_key_id', 'razorpay_secret',
         'upi_id', 'upi_number', 'upi_payee_name',
@@ -213,6 +214,24 @@ require __DIR__ . '/_header.php';
           <div class="col-md-6">
             <label class="form-label">AI Cost Per Call</label>
             <input type="number" step="0.01" name="ai_cost_per_call" class="form-control" value="<?= e($v('ai_cost_per_call', '0.50')) ?>">
+          </div>
+        </div>
+
+        <hr class="my-4">
+        <h6 class="fw-semibold"><i class="bi bi-robot"></i> Menu Chatbot (customer-facing)</h6>
+        <p class="text-muted small mb-2">A floating assistant on every restaurant menu that answers diners' questions (“what's Jain?”, “anything under ₹200?”) from that restaurant's own menu. Runs on <strong>your</strong> Gemini key, so its cost shows in AI Usage. Off by default — turn on when you're ready to pay for it.</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch mt-2">
+              <input type="hidden" name="ai_chatbot_enabled" value="0">
+              <input class="form-check-input" type="checkbox" role="switch" id="aiChatbot" name="ai_chatbot_enabled" value="1" <?= $v('ai_chatbot_enabled')==='1' ? 'checked' : '' ?>>
+              <label class="form-check-label" for="aiChatbot">Enable the menu chatbot on all restaurant menus</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Daily question cap per restaurant</label>
+            <input type="number" min="10" name="ai_chatbot_daily_cap" class="form-control" value="<?= e($v('ai_chatbot_daily_cap', '300')) ?>">
+            <div class="form-text">Hard limit to protect against runaway cost. Beyond this the chatbot politely asks the diner to try later.</div>
           </div>
         </div>
 

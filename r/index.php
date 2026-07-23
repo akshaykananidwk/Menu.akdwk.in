@@ -55,6 +55,8 @@ $tableToken   = $token ?: null;
 $tableNo      = $tableRow['table_no'] ?? null;
 $currency     = $tenant['currency'] ?: getSetting('currency', '₹');
 $showBranding = !planHasFeature((int)$tenant['id'], 'remove_branding');
+$chatbotOn    = getSetting('ai_chatbot_enabled', '0') === '1'
+             && trim((string)getSetting('gemini_api_key', '')) !== '';
 $folder       = tenantTemplateFolder($tenant);
 $tplFile      = TEMPLATE_PATH . '/' . $folder . '/index.php';
 if (!file_exists($tplFile)) { $tplFile = TEMPLATE_PATH . '/modern/index.php'; }
