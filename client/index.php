@@ -111,6 +111,7 @@ require __DIR__ . '/_header.php';
         <div class="col-6 col-md-4"><a href="<?= e(BASE_URL) ?>/client/design.php" class="btn btn-light w-100 py-3 border"><i class="bi bi-palette d-block fs-4 text-primary"></i> Design</a></div>
         <div class="col-6 col-md-4"><a href="<?= e(publicMenuUrl($tenant['slug'])) ?>" target="_blank" class="btn btn-light w-100 py-3 border"><i class="bi bi-box-arrow-up-right d-block fs-4 text-primary"></i> View Menu</a></div>
         <div class="col-6 col-md-4"><a href="<?= e(BASE_URL) ?>/client/qr.php" class="btn btn-light w-100 py-3 border"><i class="bi bi-qr-code d-block fs-4 text-primary"></i> QR Code</a></div>
+        <div class="col-6 col-md-4"><a href="<?= e(BASE_URL) ?>/r/tv.php?slug=<?= e($tenant['slug']) ?>" target="_blank" class="btn btn-light w-100 py-3 border"><i class="bi bi-tv d-block fs-4 text-primary"></i> TV Menu Board</a></div>
         <div class="col-6 col-md-4"><a href="<?= e(BASE_URL) ?>/client/settings.php" class="btn btn-light w-100 py-3 border"><i class="bi bi-gear d-block fs-4 text-primary"></i> Settings</a></div>
       </div>
     </div></div>
