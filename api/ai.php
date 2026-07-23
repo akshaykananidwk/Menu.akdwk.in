@@ -184,6 +184,86 @@ try {
             break;
         }
 
+        // ---------------------------------------------------------------------
+        // INSIGHTS — an AI business advisor over this restaurant's own numbers.
+        // Client-triggered (a button), metered as source=insights.
+        // ---------------------------------------------------------------------
+        case 'insights': {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonError('POST required.', 405); }
+            if (!trim((string)getSetting('gemini_api_key', ''))) {
+                jsonError('AI is not configured yet. Please contact support.', 503);
+            }
+            $tenant = currentTenant();
+            $cur = $tenant['currency'] ?: '₹';
+            $p = [':t' => $tid];
+            $dw = "tenant_id = :t AND status <> 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+
+            $sum = db_one("SELECT COUNT(*) o, COALESCE(SUM(total),0) rev, COALESCE(AVG(total),0) avg
+                           FROM " . tbl('orders') . " WHERE $dw", $p);
+            $top = db_all("SELECT oi.item_name, SUM(oi.qty) q FROM " . tbl('order_items') . " oi
+                           JOIN " . tbl('orders') . " o ON o.id = oi.order_id
+                           WHERE o.tenant_id = :t AND o.status <> 'cancelled'
+                             AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                           GROUP BY oi.item_name ORDER BY q DESC LIMIT 5", $p);
+            $low = db_all("SELECT oi.item_name, SUM(oi.qty) q FROM " . tbl('order_items') . " oi
+                           JOIN " . tbl('orders') . " o ON o.id = oi.order_id
+                           WHERE o.tenant_id = :t AND o.status <> 'cancelled'
+                             AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                           GROUP BY oi.item_name ORDER BY q ASC LIMIT 5", $p);
+            $hour = db_one("SELECT HOUR(created_at) h, COUNT(*) c FROM " . tbl('orders') . "
+                            WHERE $dw GROUP BY HOUR(created_at) ORDER BY c DESC LIMIT 1", $p);
+            $dow  = db_one("SELECT DAYNAME(created_at) d, COUNT(*) c FROM " . tbl('orders') . "
+                            WHERE $dw GROUP BY DAYNAME(created_at) ORDER BY c DESC LIMIT 1", $p);
+            $cust = db_one("SELECT COUNT(DISTINCT customer_mobile) total,
+                                   SUM(CASE WHEN customer_mobile IS NOT NULL AND customer_mobile <> '' THEN 1 ELSE 0 END) with_mobile
+                            FROM " . tbl('orders') . " WHERE $dw", $p);
+            $repeat = (int)db_val("SELECT COUNT(*) FROM (SELECT customer_mobile FROM " . tbl('orders') . "
+                            WHERE $dw AND customer_mobile <> '' GROUP BY customer_mobile HAVING COUNT(*) > 1) x", $p);
+            $menuItems = (int)db_val('SELECT COUNT(*) FROM ' . tbl('items') . ' WHERE tenant_id = :t AND status = 1', $p);
+
+            $topStr = implode(', ', array_map(fn($r) => $r['item_name'] . ' (' . $r['q'] . ')', $top)) ?: 'no sales yet';
+            $lowStr = implode(', ', array_map(fn($r) => $r['item_name'] . ' (' . $r['q'] . ')', $low)) ?: '—';
+
+            $stats = "Restaurant: {$tenant['restaurant_name']}" . ($tenant['city'] ? ", {$tenant['city']}" : '') . "\n"
+                . "Window: last 30 days\n"
+                . "Orders: {$sum['o']}, Revenue: {$cur}" . round((float)$sum['rev']) . ", Avg order: {$cur}" . round((float)$sum['avg']) . "\n"
+                . "Best sellers: $topStr\n"
+                . "Slow items: $lowStr\n"
+                . "Busiest hour: " . ($hour ? (date('g A', mktime((int)$hour['h'], 0, 0)) . " ({$hour['c']} orders)") : 'n/a') . "\n"
+                . "Busiest day: " . ($dow ? "{$dow['d']} ({$dow['c']} orders)" : 'n/a') . "\n"
+                . "Customers (30d): {$cust['total']}, repeat customers: $repeat\n"
+                . "Live menu items: $menuItems";
+
+            $prompt = "You are a practical restaurant business consultant for a small Indian restaurant. "
+                . "Using ONLY the numbers below, give 5 to 7 specific, actionable suggestions to grow revenue and repeat customers "
+                . "(ideas around the menu, pricing, upselling, timing, promotions, loyalty and slow items). "
+                . "Reference the actual item names, hours or days where relevant. Keep each suggestion concrete and short. "
+                . "Reply in BOTH Gujarati and English.\n\nDATA:\n$stats\n\n"
+                . 'Return STRICT JSON only, no markdown: {"insights":[{"title_en":"","title_gu":"","detail_en":"","detail_gu":""}]}';
+
+            aiSetContext(['user_id' => $tid, 'source' => 'insights', 'key_owner' => 'platform']);
+            $parts = [['text' => $prompt]];
+            $text = ''; $ok = false;
+            foreach (geminiModelCandidates() as $model) {
+                $r = geminiGenerate($parts, $model, ['temperature' => 0.7]);
+                if ($r['ok']) { $text = $r['text']; $ok = true; break; }
+                if (geminiIsModelGone($r['http'], $r['apiMsg'])) continue;
+                if (in_array($r['http'], [400, 403], true)) break;
+            }
+            if (!$ok) { jsonError('Could not generate insights right now. Please try again.', 502); }
+
+            $insights = [];
+            if (preg_match('/\{.*\}/s', $text, $m)) {
+                $j = json_decode($m[0], true);
+                if (is_array($j) && !empty($j['insights']) && is_array($j['insights'])) {
+                    $insights = array_slice($j['insights'], 0, 8);
+                }
+            }
+            if (!$insights) { $insights = [['title_en' => 'Suggestions', 'title_gu' => 'સૂચનો', 'detail_en' => trim(strip_tags($text)), 'detail_gu' => '']]; }
+            jsonSuccess('', ['insights' => $insights, 'has_data' => (int)$sum['o'] > 0]);
+            break;
+        }
+
         default:
             jsonError('Unknown action.', 404);
     }
