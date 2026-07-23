@@ -161,6 +161,11 @@ main{padding:6px 16px 10px;}
 .badge-soft{font-size:.62rem;padding:3px 8px;border-radius:20px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
 .b-best{background:linear-gradient(135deg,#fff4d6,#ffe6a8);color:#8a5b00;}
 .b-new{background:#e3f0ff;color:#0a5bd3;}
+.b-jain{background:#e7f7ee;color:#1c7a45;}
+.b-spice{background:#fdecec;color:#d0342c;}
+.b-spice .bi{font-size:.72em;}
+.tagline{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+.tagchip{font-size:.6rem;font-weight:600;color:var(--muted);background:var(--soft,#f1f2f7);border:1px solid var(--line);padding:2px 8px;border-radius:20px;}
 
 /* media column with floating ADD */
 .media{position:relative;width:112px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;}
@@ -280,6 +285,7 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
 <div class="filters">
   <span class="filterchip" data-filter="veg"><i class="bi bi-circle-fill g"></i> <?= __('veg') ?></span>
   <span class="filterchip" data-filter="nonveg"><i class="bi bi-circle-fill r"></i> <?= __('non_veg') ?></span>
+  <span class="filterchip" data-filter="jain"><i class="bi bi-flower1 g"></i> <?= __('jain') ?></span>
   <span class="filterchip" data-filter="best"><i class="bi bi-star-fill y"></i> <?= __('bestseller') ?></span>
 </div>
 
@@ -308,18 +314,28 @@ footer.brand-foot b{color:var(--ink);font-weight:600;}
         $hasImg = $tenant['show_images'] && $it['image'];
         $off = ($it['discount_price'] > 0 && $it['price'] > 0) ? (int)round(100 - ($it['discount_price']/$it['price']*100)) : 0; ?>
         <div class="item" data-name="<?= e(strtolower($L($it,'name'))) ?>"
-             data-veg="<?= (int)$it['is_veg'] ?>" data-best="<?= (int)$it['is_bestseller'] ?>">
+             data-veg="<?= (int)$it['is_veg'] ?>" data-best="<?= (int)$it['is_bestseller'] ?>"
+             data-jain="<?= (int)($it['is_jain'] ?? 0) ?>">
           <div class="info">
             <div class="toprow">
               <?php if ($tenant['show_veg_marker']): ?>
                 <span class="veg-marker <?= $it['is_veg']?'':'nonveg' ?>"></span>
               <?php endif; ?>
+              <?php if (!empty($it['is_jain'])): ?><span class="badge-soft b-jain"><i class="bi bi-flower1"></i> <?= __('jain') ?></span><?php endif; ?>
+              <?php $sl = (int)($it['spice_level'] ?? 0); if ($sl > 0): ?><span class="badge-soft b-spice" title="<?= __('spicy') ?>"><?php for ($si=0;$si<min($sl,3);$si++): ?><i class="bi bi-fire"></i><?php endfor; ?></span><?php endif; ?>
               <?php if ($it['is_bestseller']): ?><span class="badge-soft b-best"><i class="bi bi-star-fill"></i> <?= __('bestseller') ?></span><?php endif; ?>
               <?php if ($it['is_new']): ?><span class="badge-soft b-new"><?= __('new') ?></span><?php endif; ?>
             </div>
             <div class="iname"><?= e($L($it,'name')) ?></div>
             <?php if ($tenant['show_descriptions'] && $L($it,'description')): ?>
               <div class="idesc"><?= e($L($it,'description')) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($it['tags'])): ?>
+              <div class="tagline">
+                <?php foreach (array_slice(array_filter(array_map('trim', explode(',', $it['tags']))), 0, 4) as $tag): ?>
+                  <span class="tagchip"><?= e($tag) ?></span>
+                <?php endforeach; ?>
+              </div>
             <?php endif; ?>
             <?php if ($tenant['show_prices']): ?>
               <div class="priceline">
@@ -399,13 +415,14 @@ document.getElementById('search').addEventListener('input',function(){
   document.querySelectorAll('.item').forEach(it=>{it.style.display=it.dataset.name.includes(q)?'':'none';});
   syncSections();});
 // ---- Filter chips ----
-let filters={veg:false,nonveg:false,best:false};
+let filters={veg:false,nonveg:false,jain:false,best:false};
 document.querySelectorAll('.filterchip').forEach(c=>c.addEventListener('click',()=>{
   c.classList.toggle('on');filters[c.dataset.filter]=c.classList.contains('on');applyFilters();}));
 function applyFilters(){document.querySelectorAll('.item').forEach(it=>{
   let ok=true;
   if(filters.veg&&it.dataset.veg!=='1')ok=false;
   if(filters.nonveg&&it.dataset.veg!=='0')ok=false;
+  if(filters.jain&&it.dataset.jain!=='1')ok=false;
   if(filters.best&&it.dataset.best!=='1')ok=false;
   it.style.display=ok?'':'none';});syncSections();}
 // hide a category header if all its items are filtered out

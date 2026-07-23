@@ -134,6 +134,56 @@ try {
             break;
         }
 
+        // ---------------------------------------------------------------------
+        // DESCRIBE — write an appetizing dish description (English + Gujarati).
+        // Cost is metered under this tenant; does not consume menu-import credits.
+        // ---------------------------------------------------------------------
+        case 'describe': {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonError('POST required.', 405); }
+            if (!trim((string)getSetting('gemini_api_key', ''))) {
+                jsonError('AI is not configured yet. Please contact support.', 503);
+            }
+            $name = trim((string)($_POST['name'] ?? ''));
+            $cat  = trim((string)($_POST['category'] ?? ''));
+            $isVeg = ($_POST['is_veg'] ?? '1') === '0' ? 'non-vegetarian' : 'vegetarian';
+            if ($name === '' || mb_strlen($name) > 120) {
+                jsonError('Please enter the dish name first.');
+            }
+
+            $prompt = "You are a menu copywriter for an Indian restaurant. Write a short, "
+                . "appetizing menu description for this dish. Keep it to ONE sentence, max 20 words, "
+                . "no price, no emojis, factual and mouth-watering.\n"
+                . "Dish name: \"$name\"\n"
+                . ($cat !== '' ? "Category: \"$cat\"\n" : '')
+                . "Type: $isVeg\n"
+                . 'Return STRICT JSON only, no markdown: {"en":"English description","gu":"same description in Gujarati"}';
+
+            aiSetContext(['user_id' => $tid, 'source' => 'desc_writer', 'key_owner' => 'platform']);
+            $parts = [['text' => $prompt]];
+            $text = ''; $ok = false;
+            foreach (geminiModelCandidates() as $model) {
+                $r = geminiGenerate($parts, $model, ['temperature' => 0.8]);
+                if ($r['ok']) { $text = $r['text']; $ok = true; break; }
+                if (geminiIsModelGone($r['http'], $r['apiMsg'])) continue;
+                if (in_array($r['http'], [400, 403], true)) break;
+            }
+            if (!$ok) { jsonError('Could not generate a description right now. Please try again.', 502); }
+
+            // Parse the model's JSON (tolerate ```json fences / stray text).
+            $en = ''; $gu = '';
+            if (preg_match('/\{.*\}/s', $text, $m)) {
+                $j = json_decode($m[0], true);
+                if (is_array($j)) { $en = trim((string)($j['en'] ?? '')); $gu = trim((string)($j['gu'] ?? '')); }
+            }
+            if ($en === '') { $en = trim(preg_replace('/\s+/', ' ', strip_tags($text))); }
+            $en = mb_substr($en, 0, 300);
+            $gu = mb_substr($gu, 0, 300);
+            if ($en === '') { jsonError('Empty response from AI. Please try again.', 502); }
+
+            jsonSuccess('Description ready.', ['en' => $en, 'gu' => $gu]);
+            break;
+        }
+
         default:
             jsonError('Unknown action.', 404);
     }

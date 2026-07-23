@@ -73,13 +73,20 @@ $to   = date('Y-m-d');
   </div></div></div>
 </div>
 
-<div class="card mt-3"><div class="card-body">
-  <h6 class="card-title">Top Selling Items</h6>
-  <div class="table-responsive">
-    <table class="table table-sm" id="topTable"><thead><tr><th>#</th><th>Item</th><th class="text-end">Qty</th><th class="text-end">Revenue</th></tr></thead>
-      <tbody></tbody></table>
-  </div>
-</div></div>
+<div class="row g-3 mt-1">
+  <div class="col-lg-7"><div class="card h-100"><div class="card-body">
+    <h6 class="card-title">Busiest Hours <small class="text-muted fw-normal">— when orders come in</small></h6>
+    <canvas id="hourChart" height="150"></canvas>
+    <div class="small text-muted mt-2" id="peakHint"></div>
+  </div></div></div>
+  <div class="col-lg-5"><div class="card h-100"><div class="card-body">
+    <h6 class="card-title">Top Selling Items</h6>
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" id="topTable"><thead><tr><th>#</th><th>Item</th><th class="text-end">Qty</th><th class="text-end">Revenue</th></tr></thead>
+        <tbody></tbody></table>
+    </div>
+  </div></div></div>
+</div>
 
 <?php
 $base = BASE_URL;
@@ -116,6 +123,26 @@ function load(){
       `<td class="text-end">\${it.qty}</td><td class="text-end">\${money(it.revenue)}</td></tr>`).join('')
       || '<tr><td colspan="4" class="text-muted text-center">No sales in this range.</td></tr>';
   });
+  AK.get(B+'/api/reports.php?action=peak_hours&'+range()).then(res=>{
+    if(!res || res.status!=='success') return;
+    drawHours(res.data.hours||[]);
+  });
+}
+
+let hourChart;
+function drawHours(hours){
+  const labels = hours.map(h=>h.label), data = hours.map(h=>+h.orders);
+  const max = Math.max(...data, 0);
+  const colors = data.map(v => v===max && max>0 ? '#e63946' : 'rgba(45,157,143,.75)');
+  if(hourChart) hourChart.destroy();
+  hourChart = new Chart(document.getElementById('hourChart'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Orders', data, backgroundColor:colors, borderRadius:5}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{precision:0}}, x:{ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12}}}}
+  });
+  const peak = hours.reduce((a,b)=> (+b.orders>+ (a?a.orders:0))?b:a, null);
+  document.getElementById('peakHint').textContent =
+    (peak && +peak.orders>0) ? ('Busiest hour: '+peak.label+' ('+peak.orders+' orders). Plan staff & offers around it.') : 'No orders in this range yet.';
 }
 
 function drawSales(series){

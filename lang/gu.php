@@ -52,6 +52,8 @@ return [
     'non_veg' => 'માંસાહારી',
     'bestseller' => 'બેસ્ટસેલર',
     'new' => 'નવું',
+    'jain' => 'જૈન',
+    'spicy' => 'તીખું',
     'scan_for_menu' => 'મેનુ માટે સ્કેન કરો',
     'open_now' => 'હમણાં ખુલ્લું',
     'closed_now' => 'બંધ',

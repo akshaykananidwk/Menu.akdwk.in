@@ -54,6 +54,8 @@ return [
     'non_veg' => 'Non-Veg',
     'bestseller' => 'Bestseller',
     'new' => 'New',
+    'jain' => 'Jain',
+    'spicy' => 'Spicy',
     'scan_for_menu' => 'Scan for Menu',
     'open_now' => 'Open Now',
     'closed_now' => 'Closed',

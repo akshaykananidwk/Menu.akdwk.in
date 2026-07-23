@@ -1,8 +1,12 @@
 {
-    "version": "1.4.0",
-    "released_on": "2026-07-22",
+    "version": "1.5.0",
+    "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "Public menu now shows dietary tags: a Jain badge, a spice-level indicator (🔥 icons) and your custom item tags (e.g. 'Chef Special') — plus a new 'Jain' filter chip so diners can filter Jain items in one tap (uses the fields you already fill in the menu editor)",
+        "New client 'Customers' page (CRM): every diner who orders is remembered by mobile number — see visits, total spend, average order, last visit and their favourite items, with one-tap WhatsApp and a CSV export, so you can win back regulars",
+        "Reports now show a 'Busiest Hours' chart — the hour-by-hour order pattern for any date range highlights your peak hour so you can plan staff and time your offers",
+        "AI Description Writer in the menu editor: an 'AI Write' button next to Description writes an appetizing one-line description in English and Gujarati from the dish name (metered under AI cost like other AI features)",
         "AI Token Usage & Cost Metering: every Gemini call now logs exact token counts (input/output/thinking/cached) from the provider's own usageMetadata and computes cost from an editable price table — no estimates",
         "Admin → AI Usage & Cost: Overview (platform-key vs users'-key spend, daily cost chart, top users, warning banners), User-wise table with CSV export, per-user detail (model/feature breakdown, recent calls), Rates & Settings (edit prices, USD→local rate, markup, limits), and a monthly Billing report with markup + print/PDF",
         "Each restaurant sees only its own 'AI Usage This Month' on its dashboard; clients can never see other users' data, prices or the platform key",

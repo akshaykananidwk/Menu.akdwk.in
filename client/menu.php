@@ -140,7 +140,13 @@ function autoAddPhotos(){
       <div class="row g-2">
         <div class="col-md-6"><label class="form-label">Name *</label><input name="name" id="it_name" class="form-control" required></div>
         <div class="col-md-6"><label class="form-label">Name (Gujarati)</label><input name="name_gu" id="it_name_gu" class="form-control"></div>
-        <div class="col-md-6"><label class="form-label">Description</label><textarea name="description" id="it_desc" class="form-control" rows="2"></textarea></div>
+        <div class="col-md-6">
+          <label class="form-label d-flex justify-content-between align-items-center">
+            <span>Description</span>
+            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" id="genDescBtn" onclick="genDesc()" title="Let AI write an appetizing description"><i class="bi bi-magic"></i> AI Write</button>
+          </label>
+          <textarea name="description" id="it_desc" class="form-control" rows="2"></textarea>
+        </div>
         <div class="col-md-6"><label class="form-label">Description (Gujarati)</label><textarea name="description_gu" id="it_desc_gu" class="form-control" rows="2"></textarea></div>
         <div class="col-md-3"><label class="form-label">Price *</label><input type="number" step="0.01" name="price" id="it_price" class="form-control" required></div>
         <div class="col-md-3"><label class="form-label">Discount Price</label><input type="number" step="0.01" name="discount_price" id="it_disc" class="form-control"></div>
@@ -367,6 +373,30 @@ function addAddon(name='', price=''){
     <input type="number" step="0.01" class="form-control a-price" placeholder="Price" value="${price}">
     <button type="button" class="btn btn-outline-danger" onclick="this.parentNode.remove()"><i class="bi bi-x"></i></button>`;
   document.getElementById('addonRows').appendChild(div);
+}
+function genDesc(){
+  const name = document.getElementById('it_name').value.trim();
+  if(!name){ AK.toast('error','Enter the dish name first.'); return; }
+  const btn = document.getElementById('genDescBtn');
+  const food = document.getElementById('it_food').value;
+  const catSel = document.getElementById('it_cat');
+  const catName = (catSel && catSel.options && catSel.selectedIndex>=0) ? catSel.options[catSel.selectedIndex].text : '';
+  const fd = new FormData();
+  fd.set('name', name);
+  fd.set('category', catName || '');
+  fd.set('is_veg', (food==='nonveg'||food==='egg') ? '0' : '1');
+  const old = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  AK.post('<?= e(BASE_URL) ?>/api/ai.php?action=describe', fd).then(r => {
+    btn.disabled = false; btn.innerHTML = old;
+    if(r && r.status==='success'){
+      if(r.data.en) document.getElementById('it_desc').value = r.data.en;
+      if(r.data.gu) document.getElementById('it_desc_gu').value = r.data.gu;
+      AK.toast('success','Description generated.');
+    } else {
+      AK.toast('error', (r && r.message) || 'Could not generate.');
+    }
+  }).catch(()=>{ btn.disabled=false; btn.innerHTML=old; AK.toast('error','Network error.'); });
 }
 function saveItem(ev){
   ev.preventDefault();

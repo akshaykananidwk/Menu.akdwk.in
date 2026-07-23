@@ -59,6 +59,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <?= cnav('tables',$activeNav,'/client/tables.php','bi-grid-3x3-gap','Tables',$canOrder) ?>
       <?= cnav('staff',$activeNav,'/client/staff.php','bi-people','Staff') ?>
       <?= cnav('feedback',$activeNav,'/client/feedback.php','bi-star','Feedback') ?>
+      <?= cnav('customers',$activeNav,'/client/customers.php','bi-person-vcard','Customers',$canOrder) ?>
       <?= cnav('reports',$activeNav,'/client/reports.php','bi-graph-up','Reports',$canOrder) ?>
       <div class="nav-section">Account</div>
       <?= cnav('plans',$activeNav,'/client/plans.php','bi-gem','Plans & Billing') ?>
