@@ -9,6 +9,7 @@ require __DIR__ . '/_header.php';
 
 $tid   = (int)currentTenantId();
 $limit = checkPlanLimit($tid, 'waiters');
+$propCode = propertyCode($tid);
 
 // Staff list with lifetime order counts (tenant-isolated join).
 $rows = db_all('SELECT s.*, (SELECT COUNT(*) FROM ' . tbl('orders') . ' o
@@ -33,7 +34,7 @@ $rows = db_all('SELECT s.*, (SELECT COUNT(*) FROM ' . tbl('orders') . ' o
             <tr>
               <td><strong><?= e($r['name']) ?></strong></td>
               <td><?= e($r['mobile'] ?: '-') ?></td>
-              <td><span class="badge bg-<?= $r['role'] === 'kitchen' ? 'dark' : 'info' ?>"><?= e(ucfirst($r['role'])) ?></span></td>
+              <td><span class="badge bg-<?= $r['role'] === 'kitchen' ? 'dark' : ($r['role'] === 'reception' ? 'primary' : 'info') ?>"><?= e(ucfirst($r['role'])) ?></span></td>
               <td><?= (int)$r['order_count'] ?></td>
               <td>
                 <span class="badge bg-<?= (int)$r['status'] === 1 ? 'success' : 'secondary' ?>">
@@ -53,20 +54,20 @@ $rows = db_all('SELECT s.*, (SELECT COUNT(*) FROM ' . tbl('orders') . ' o
     </div>
   </div>
   <div class="col-lg-4">
-    <div class="card"><div class="card-body">
-      <h6 class="card-title"><i class="bi bi-info-circle"></i> Staff Login Instructions</h6>
-      <p class="small text-muted mb-2">Waiters and kitchen staff log in from their own panels using:</p>
-      <ul class="small">
-        <li><strong>Restaurant Code:</strong> <code><?= e($tenant['slug']) ?></code></li>
-        <li><strong>PIN:</strong> the 4-digit PIN you set</li>
+    <div class="card border-primary"><div class="card-body text-center">
+      <h6 class="card-title"><i class="bi bi-phone"></i> Staff App Login</h6>
+      <p class="small text-muted mb-2">Your restaurant's <strong>Property Code</strong> — staff enter this + their PIN in the app:</p>
+      <div class="display-5 fw-bold text-primary" style="letter-spacing:.35rem"><?= e($propCode) ?></div>
+      <a href="<?= e(BASE_URL) ?>/app/" target="_blank" class="btn btn-primary btn-sm mt-3 w-100"><i class="bi bi-box-arrow-up-right"></i> Open Staff App</a>
+      <p class="small text-muted mt-2 mb-0">Open this link on the phone/tablet, tap the role (Waiter / Kitchen / Reception), then <strong>Add to Home Screen</strong> to install it like an app.</p>
+    </div></div>
+    <div class="card mt-3"><div class="card-body">
+      <h6 class="card-title"><i class="bi bi-info-circle"></i> Roles</h6>
+      <ul class="small mb-0">
+        <li><strong>Waiter</strong> — takes orders at tables.</li>
+        <li><strong>Kitchen</strong> — the KOT display screen.</li>
+        <li><strong>Reception</strong> — takes orders for any table, runs the floor (live orders + service calls + reservations). No payment access.</li>
       </ul>
-      <hr>
-      <div class="small">
-        <div><i class="bi bi-person-badge"></i> Waiter panel:<br>
-          <a href="<?= e(BASE_URL) ?>/waiter/login.php" target="_blank"><?= e(BASE_URL) ?>/waiter/login.php</a></div>
-        <div class="mt-2"><i class="bi bi-fire"></i> Kitchen display:<br>
-          <a href="<?= e(BASE_URL) ?>/kitchen/login.php" target="_blank"><?= e(BASE_URL) ?>/kitchen/login.php</a></div>
-      </div>
     </div></div>
   </div>
 </div>
@@ -86,6 +87,7 @@ $rows = db_all('SELECT s.*, (SELECT COUNT(*) FROM ' . tbl('orders') . ' o
         <select name="role" id="fRole" class="form-select" required>
           <option value="waiter">Waiter</option>
           <option value="kitchen">Kitchen</option>
+          <option value="reception">Reception</option>
         </select></div>
       <div class="mb-3"><label class="form-label">4-digit PIN <span id="pinReq" class="text-danger">*</span></label>
         <input name="pin" id="fPin" class="form-control" inputmode="numeric" maxlength="4" pattern="\d{4}">

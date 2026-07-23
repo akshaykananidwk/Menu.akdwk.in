@@ -226,11 +226,10 @@ function requireClient(): void {
     ensureTenantActive();
 }
 
-/** Require a waiter/kitchen staff session of a specific role. */
+/** Require a staff session (waiter/kitchen/reception) of a specific role. */
 function requireStaff(string $role): void {
     if (empty($_SESSION['staff_id']) || ($_SESSION['staff_role'] ?? '') !== $role) {
-        $to = $role === 'kitchen' ? '/kitchen/login.php' : '/waiter/login.php';
-        redirect(BASE_URL . $to);
+        redirect(BASE_URL . '/app/?role=' . urlencode($role));
     }
 }
 
@@ -643,6 +642,47 @@ function tenantPaymentConfig(int $tenantId): array {
         'key_id'           => $keyId,
         'key_secret'       => $secret,
     ];
+}
+
+// =============================================================================
+// STAFF APP  (property code + unified login resolution)
+// =============================================================================
+
+/** The restaurant's short numeric Property Code for staff login (generated once). */
+function propertyCode(int $tenantId): string {
+    try {
+        $c = db_val('SELECT property_code FROM ' . tbl('tenant_app_codes') . ' WHERE tenant_id = :t', [':t' => $tenantId]);
+        if ($c) { return (string)$c; }
+        // Generate a unique 4-digit code (fall back to 5 digits if the space fills).
+        for ($i = 0; $i < 40; $i++) {
+            $code = (string)random_int(1000, 9999);
+            if (db_val('SELECT tenant_id FROM ' . tbl('tenant_app_codes') . ' WHERE property_code = :c', [':c' => $code])) { continue; }
+            try {
+                db_insert('tenant_app_codes', ['tenant_id' => $tenantId, 'property_code' => $code, 'created_at' => date('Y-m-d H:i:s')]);
+                return $code;
+            } catch (Throwable $e) { /* race → retry */ }
+        }
+        $code = (string)random_int(10000, 99999);
+        db_insert('tenant_app_codes', ['tenant_id' => $tenantId, 'property_code' => $code, 'created_at' => date('Y-m-d H:i:s')]);
+        return $code;
+    } catch (Throwable $e) { return ''; } // table not migrated yet
+}
+
+/** Resolve a tenant from a staff login code: property code → tenant id → slug. */
+function tenantByLoginCode(string $code): ?array {
+    $code = trim($code);
+    if ($code === '') { return null; }
+    try {
+        $row = db_one('SELECT t.* FROM ' . tbl('tenant_app_codes') . ' c
+                       JOIN ' . tbl('tenants') . ' t ON t.id = c.tenant_id
+                       WHERE c.property_code = :c', [':c' => $code]);
+        if ($row) { return $row; }
+    } catch (Throwable $e) { /* table missing pre-migration → fall through */ }
+    if (ctype_digit($code)) {
+        $row = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :c', [':c' => $code]);
+        if ($row) { return $row; }
+    }
+    return db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE slug = :c', [':c' => $code]);
 }
 
 /** Append a ledger entry (earn: +points, redeem: -points). Never throws. */

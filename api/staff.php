@@ -19,7 +19,7 @@ try {
             $id     = (int)($_POST['id'] ?? 0);
             $name   = trim((string)($_POST['name'] ?? ''));
             $mobile = preg_replace('/[^0-9]/', '', (string)($_POST['mobile'] ?? ''));
-            $role   = in_array($_POST['role'] ?? '', ['waiter', 'kitchen'], true) ? $_POST['role'] : '';
+            $role   = in_array($_POST['role'] ?? '', ['waiter', 'kitchen', 'reception'], true) ? $_POST['role'] : '';
             $pin    = trim((string)($_POST['pin'] ?? ''));
 
             if ($name === '') { jsonError('Name is required.'); }

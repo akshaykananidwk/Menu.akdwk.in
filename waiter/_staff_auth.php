@@ -10,10 +10,8 @@ function staffLoginHandler(string $role): string {
     $ident = "staff:$role:$code";
     if (isLoginLocked($ident)) return __('account_locked');
 
-    $tenant = ctype_digit($code)
-        ? db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :c', [':c' => $code])
-        : db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE slug = :c', [':c' => $code]);
-    if (!$tenant) { recordFailedLogin($ident); return 'Invalid restaurant code.'; }
+    $tenant = tenantByLoginCode($code);
+    if (!$tenant) { recordFailedLogin($ident); return 'Invalid property code.'; }
 
     $staff = db_all('SELECT * FROM ' . tbl('staff') . ' WHERE tenant_id = :t AND role = :r AND status = 1',
         [':t' => $tenant['id'], ':r' => $role]);

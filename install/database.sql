@@ -178,7 +178,7 @@ CREATE TABLE `{PREFIX}staff` (
   `name` VARCHAR(120) NOT NULL,
   `mobile` VARCHAR(20) DEFAULT NULL,
   `pin` VARCHAR(255) NOT NULL,
-  `role` ENUM('waiter','kitchen') NOT NULL DEFAULT 'waiter',
+  `role` ENUM('waiter','kitchen','reception') NOT NULL DEFAULT 'waiter',
   `status` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -787,6 +787,14 @@ CREATE TABLE `{PREFIX}tenant_payment_settings` (
   `razorpay_key_secret` VARCHAR(120) DEFAULT NULL,
   `updated_at` DATETIME DEFAULT NULL,
   PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `{PREFIX}tenant_app_codes` (
+  `tenant_id` INT NOT NULL,
+  `property_code` VARCHAR(8) NOT NULL,
+  `created_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`tenant_id`),
+  UNIQUE KEY `uq_property_code` (`property_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `{PREFIX}service_requests` (

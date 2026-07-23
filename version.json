@@ -1,8 +1,11 @@
 {
-    "version": "1.7.0",
+    "version": "1.8.0",
     "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "Master Staff App (installable): open menu.akdwk.in/app on any phone or tablet, tap your role — Waiter, Kitchen or Reception — and it shows that screen. 'Add to Home Screen' installs it like a real app (no Play Store needed); it works on both mobiles and tablets",
+        "One simple 4-digit Property Code per restaurant for staff login: your team just enters the Property Code (shown in Staff → Staff App) + their 4-digit PIN. The old restaurant-code/slug login still works too",
+        "New Reception role: a front-desk / captain screen that can take orders for any table and run the floor — advance live orders, clear table-service calls (Call Waiter/Bill) and confirm today's reservations — but cannot collect payment (that stays with the owner). Add reception staff in Staff with their own PIN",
         "Call Waiter from the table: the menu now has a 'Call Waiter' button (Call / Bring Bill / Water / Clean table). Requests pop up instantly on the Kitchen board and the owner's Orders board with a chime + Hindi voice alert and a one-tap 'Done'",
         "AI Business Advisor (client → AI Advisor): on demand it reads your last 30 days — sales, best & slow items, busiest hours/days, repeat customers — and gives 5-7 concrete, practical suggestions to grow revenue, in Gujarati + English (metered under AI cost)",
         "Digital TV Menu Board (/r/tv.php?slug=…): a full-screen, auto-scrolling menu for a TV or screen in your shop, in your brand colours; it refreshes itself so menu edits appear automatically. Open it from the dashboard's 'TV Menu Board' tile",
