@@ -513,6 +513,8 @@ const SLUG='<?= e($tenant['slug']) ?>';
 let cart=[];
 let couponCode='';      // applied promo code (re-validated on every cart open)
 let couponDiscount=0;   // server-computed discount amount
+let loyaltyRedeem=0;    // client-side estimate of points discount (server is authoritative)
+let loyaltyState={enabled:false,balance:0,min:0,redeemable:0,on:false};
 function money(n){return CURRENCY+Number(n).toFixed(0);}
 function openItem(it){
   let vhtml='';
@@ -565,7 +567,7 @@ function maybeShowReorder(){
     cart=last.items.map(i=>({id:i.id,name:i.name,variant:i.variant||null,addons:i.addons||[],qty:i.qty||1,price:i.price,notes:i.notes||''}));
     renderCart(); openCart();
     const n=document.getElementById('custName'), m=document.getElementById('custMobile');
-    if(n&&last.name) n.value=last.name; if(m&&last.mobile) m.value=last.mobile;
+    if(n&&last.name) n.value=last.name; if(m&&last.mobile){ m.value=last.mobile; if(typeof loyaltyCheck==='function') loyaltyCheck(); }
     bar.remove();
   });
 }
@@ -587,20 +589,57 @@ function openCart(){
     <div class="totrow" id="grandRow"><span>Total</span><span id="grandTotal">${money(subtotal)}</span></div>
     <div class="mt-3">
     <input id="custName" class="fld" placeholder="<?= __('your_name') ?>">
-    <input id="custMobile" class="fld" placeholder="Mobile number" inputmode="numeric">
+    <input id="custMobile" class="fld" placeholder="Mobile number" inputmode="numeric" oninput="loyaltyCheck()">
+    <div id="loyaltyBox" class="small"></div>
     <select id="orderType" class="fld">
       <option value="dinein">Dine-in</option><option value="takeaway">Takeaway</option><option value="delivery">Delivery</option></select></div>`;
   showModal('<?= __('cart') ?>',form,placeOrder,'<?= __('place_order') ?>');
   // Re-validate any previously applied code against the current subtotal.
   if(couponCode){ applyCoupon(true); }
+  loyaltyRedeem=0; loyaltyState.on=false; loyaltyCheck();
+}
+// ---- Loyalty points in the cart ----
+let loyaltyTimer;
+function loyaltyCheck(){
+  const m=(document.getElementById('custMobile')?.value||'').replace(/\D/g,'');
+  const box=document.getElementById('loyaltyBox'); if(!box) return;
+  if(m.length<10){ box.innerHTML=''; loyaltyRedeem=0; loyaltyState.on=false; updateCartTotals(); return; }
+  clearTimeout(loyaltyTimer);
+  loyaltyTimer=setTimeout(()=>{
+    fetch('<?= e(BASE_URL) ?>/api/loyalty.php?action=balance&slug='+encodeURIComponent(SLUG)+'&mobile='+m+'&subtotal='+cartSubtotal())
+      .then(r=>r.json()).then(res=>{
+        const d=(res&&res.data)||{};
+        if(!d.enabled){ box.innerHTML=''; return; }
+        loyaltyState={enabled:true,balance:d.balance||0,min:d.min_redeem||0,redeemable:d.redeemable||0,on:loyaltyState.on};
+        renderLoyaltyBox();
+      }).catch(()=>{ box.innerHTML=''; });
+  },350);
+}
+function renderLoyaltyBox(){
+  const box=document.getElementById('loyaltyBox'); if(!box) return;
+  const s=loyaltyState;
+  if(s.redeemable>0){
+    box.innerHTML='<label style="display:flex;align-items:center;gap:8px;background:#fff6e5;border:1px solid #ffe0a3;border-radius:10px;padding:8px 10px;margin:6px 0;cursor:pointer">'+
+      '<input type="checkbox" id="lyRedeem" '+(s.on?'checked':'')+'>'+
+      '<span>🎁 Use <b>'+s.redeemable+'</b> points to save <b>'+money(s.redeemable)+'</b> <span style="color:#8a90a2">(balance: '+s.balance+')</span></span></label>';
+    box.querySelector('#lyRedeem').addEventListener('change',function(){
+      loyaltyState.on=this.checked; loyaltyRedeem=this.checked?s.redeemable:0; updateCartTotals();
+    });
+    loyaltyRedeem=s.on?s.redeemable:0;
+  } else if(s.balance>0){
+    box.innerHTML='<div style="color:#8a90a2;margin:6px 0">⭐ You have '+s.balance+' points'+(s.balance<s.min?(' — earn '+(s.min-s.balance)+' more to redeem'):'')+'.</div>';
+    loyaltyRedeem=0;
+  } else { box.innerHTML=''; loyaltyRedeem=0; }
+  updateCartTotals();
 }
 function updateCartTotals(){
   const subtotal=cartSubtotal();
   const sub=document.getElementById('cartSub'); if(sub) sub.textContent=money(subtotal);
   const dr=document.getElementById('discRow'), da=document.getElementById('discAmt'), gt=document.getElementById('grandTotal');
-  if(couponDiscount>0){ if(dr) dr.style.display=''; if(da) da.textContent='−'+money(couponDiscount); }
+  const totalDisc=couponDiscount+(loyaltyRedeem||0);
+  if(totalDisc>0){ if(dr) dr.style.display=''; if(da) da.textContent='−'+money(totalDisc); }
   else { if(dr) dr.style.display='none'; }
-  const grand=Math.max(0,subtotal-couponDiscount);
+  const grand=Math.max(0,subtotal-totalDisc);
   if(gt) gt.textContent=money(grand);
 }
 function applyCoupon(silent){
@@ -627,22 +666,28 @@ function placeOrder(){
   if(!name){document.getElementById('custName').focus();document.getElementById('custName').style.borderColor='#e23744';return;}
   const payload={slug:SLUG,table_token:TABLE_TOKEN,customer_name:name,
     customer_mobile:document.getElementById('custMobile').value,order_type:document.getElementById('orderType').value,
-    coupon_code:couponCode,items:cart};
+    coupon_code:couponCode,redeem_points:(loyaltyState.on?1:0),items:cart};
   const okb=document.getElementById('modalOk');okb.disabled=true;okb.textContent='Placing…';
   fetch('<?= e(BASE_URL) ?>/api/order.php?action=place',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(r=>r.json()).then(d=>{
       if(d.status==='success'){
         try{ localStorage.setItem('akLast_'+SLUG, JSON.stringify({items:cart, name:name,
           mobile:document.getElementById('custMobile').value, at:Date.now()})); }catch(e){}
-        bsModal.hide();cart=[];couponCode='';couponDiscount=0;renderCart();
-        showFeedback(d.data.order_id);}
+        bsModal.hide();cart=[];couponCode='';couponDiscount=0;loyaltyRedeem=0;loyaltyState.on=false;renderCart();
+        showFeedback(d.data.order_id,d.data);}
       else{alert(d.message||'Order failed');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';}})
     .catch(()=>{alert('Network error');okb.disabled=false;okb.textContent='<?= __('place_order') ?>';});
 }
-function showFeedback(orderId){
+function showFeedback(orderId,data){
+  data=data||{};
+  let pts='';
+  if(data.points_used>0){ pts+=`<div style="color:#1a7f37;font-weight:600">🎁 ${data.points_used} points redeemed</div>`; }
+  if(data.points_earned>0){ pts+=`<div style="background:#fff6e5;border:1px solid #ffe0a3;border-radius:12px;padding:8px 12px;margin:8px auto;display:inline-block">⭐ You earned <b>${data.points_earned}</b> points!`+
+    (data.points_balance!=null?` <span style="color:#8a90a2">Balance: ${data.points_balance}</span>`:'')+`</div>`; }
   const html=`<div class="text-center py-2">
     <div style="font-size:3rem;line-height:1">🎉</div>
     <h5 class="fw-bold mt-2"><?= __('order_placed') ?></h5>
+    ${pts}
     <p class="text-muted mb-3"><?= __('rate_experience') ?></p>
     <div class="stars-wrap" id="stars">${[1,2,3,4,5].map(s=>`<i class="bi bi-star star" data-s="${s}" onclick="rate(${s},${orderId})"></i>`).join('')}</div></div>`;
   showModal('Thank you!',html,null);

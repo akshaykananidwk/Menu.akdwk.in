@@ -601,6 +601,52 @@ function logAi(?int $tenantId, string $type, int $tokens, string $status): void 
 }
 
 // =============================================================================
+// LOYALTY POINTS  (1 point = 1 currency unit; append-only ledger, balance = SUM)
+// =============================================================================
+
+/** Per-restaurant loyalty configuration with safe defaults (works pre-migration). */
+function loyaltyConfig(int $tenantId): array {
+    $defaults = ['enabled' => false, 'earn_percent' => 5.0, 'min_redeem' => 50, 'max_redeem_pct' => 20.0];
+    try {
+        $row = db_one('SELECT * FROM ' . tbl('loyalty_settings') . ' WHERE tenant_id = :t', [':t' => $tenantId]);
+    } catch (Throwable $e) { return $defaults; } // table not migrated yet → disabled
+    if (!$row) { return $defaults; }
+    return [
+        'enabled'        => (int)$row['enabled'] === 1,
+        'earn_percent'   => (float)$row['earn_percent'],
+        'min_redeem'     => max(1, (int)$row['min_redeem']),
+        'max_redeem_pct' => min(100, max(0, (float)$row['max_redeem_pct'])),
+    ];
+}
+
+/** Current point balance for a customer at a restaurant (0 on any error). */
+function loyaltyBalance(int $tenantId, string $mobile): int {
+    $mobile = preg_replace('/[^0-9]/', '', $mobile);
+    if ($mobile === '') { return 0; }
+    try {
+        return (int)db_val('SELECT COALESCE(SUM(points),0) FROM ' . tbl('loyalty_ledger') . '
+                            WHERE tenant_id = :t AND customer_mobile = :m', [':t' => $tenantId, ':m' => $mobile]);
+    } catch (Throwable $e) { return 0; }
+}
+
+/** Append a ledger entry (earn: +points, redeem: -points). Never throws. */
+function loyaltyAdd(int $tenantId, string $mobile, int $points, string $type, ?int $orderId = null, string $note = ''): void {
+    $mobile = preg_replace('/[^0-9]/', '', $mobile);
+    if ($mobile === '' || $points === 0) { return; }
+    try {
+        db_insert('loyalty_ledger', [
+            'tenant_id'       => $tenantId,
+            'customer_mobile' => $mobile,
+            'order_id'        => $orderId,
+            'points'          => $points,
+            'type'            => in_array($type, ['earn', 'redeem', 'adjust'], true) ? $type : 'adjust',
+            'note'            => $note !== '' ? mb_substr($note, 0, 160) : null,
+            'created_at'      => date('Y-m-d H:i:s'),
+        ]);
+    } catch (Throwable $e) { error_log('loyaltyAdd: ' . $e->getMessage()); }
+}
+
+// =============================================================================
 // JSON API RESPONSES  (contract: {status, message, data})
 // =============================================================================
 

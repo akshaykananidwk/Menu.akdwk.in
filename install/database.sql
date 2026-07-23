@@ -756,6 +756,30 @@ CREATE TABLE `{PREFIX}menu_views` (
   KEY `idx_view_date` (`view_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `{PREFIX}loyalty_settings` (
+  `tenant_id` INT NOT NULL,
+  `enabled` TINYINT(1) DEFAULT 0,
+  `earn_percent` DECIMAL(5,2) DEFAULT 5.00,
+  `min_redeem` INT DEFAULT 50,
+  `max_redeem_pct` DECIMAL(5,2) DEFAULT 20.00,
+  `updated_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `{PREFIX}loyalty_ledger` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` INT NOT NULL,
+  `customer_mobile` VARCHAR(20) NOT NULL,
+  `order_id` INT DEFAULT NULL,
+  `points` INT NOT NULL,
+  `type` ENUM('earn','redeem','adjust') DEFAULT 'earn',
+  `note` VARCHAR(160) DEFAULT NULL,
+  `created_at` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_mobile` (`tenant_id`,`customer_mobile`),
+  KEY `idx_tenant_created` (`tenant_id`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================

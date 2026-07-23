@@ -152,8 +152,25 @@ try {
                 // Invalid coupon at checkout is ignored silently (order still goes through un-discounted).
             }
 
-            $total = round($subtotal + $tax + $service - $discount, 2);
+            // --- Loyalty redemption (server-authoritative; safe/optional). ---
+            $lcfg = loyaltyConfig($tid);
+            $loyaltyDiscount = 0.0; $pointsUsed = 0;
+            try {
+                if ($lcfg['enabled'] && $custMobile !== '' && !empty($body['redeem_points'])) {
+                    $bal = loyaltyBalance($tid, $custMobile);
+                    if ($bal >= $lcfg['min_redeem']) {
+                        $dueBefore = (int)floor($subtotal + $tax + $service - $discount);
+                        $maxByPct  = (int)floor($subtotal * $lcfg['max_redeem_pct'] / 100);
+                        $redeem    = (int)min($bal, $maxByPct, max(0, $dueBefore)); // 1 point = 1 unit
+                        if ($redeem > 0) { $pointsUsed = $redeem; $loyaltyDiscount = (float)$redeem; }
+                    }
+                }
+            } catch (Throwable $e) { error_log('loyalty redeem: ' . $e->getMessage()); $loyaltyDiscount = 0.0; $pointsUsed = 0; }
+
+            $total = round($subtotal + $tax + $service - $discount - $loyaltyDiscount, 2);
             if ($total < 0) { $total = 0.0; }
+            // Store coupon + loyalty together in the orders.discount column.
+            $discount = round($discount + $loyaltyDiscount, 2);
 
             // --- Persist order + items. ---
             $orderNo = nextOrderNo($tid);
@@ -205,7 +222,28 @@ try {
                 error_log('new_order WA failed: ' . $e->getMessage());
             }
 
-            jsonSuccess('Order placed successfully.', ['order_id' => $orderId, 'order_no' => $orderNo]);
+            // --- Loyalty: redeem + earn (fire-and-forget; never breaks the order). ---
+            $pointsEarned = 0; $pointsBalance = null;
+            try {
+                if ($lcfg['enabled'] && $custMobile !== '') {
+                    if ($pointsUsed > 0) {
+                        loyaltyAdd($tid, $custMobile, -$pointsUsed, 'redeem', $orderId, 'Redeemed on ' . $orderNo);
+                    }
+                    $pointsEarned = (int)floor($subtotal * $lcfg['earn_percent'] / 100);
+                    if ($pointsEarned > 0) {
+                        loyaltyAdd($tid, $custMobile, $pointsEarned, 'earn', $orderId, 'Earned on ' . $orderNo);
+                    }
+                    $pointsBalance = loyaltyBalance($tid, $custMobile);
+                }
+            } catch (Throwable $e) { error_log('loyalty award: ' . $e->getMessage()); }
+
+            jsonSuccess('Order placed successfully.', [
+                'order_id'       => $orderId,
+                'order_no'       => $orderNo,
+                'points_earned'  => $pointsEarned,
+                'points_used'    => $pointsUsed,
+                'points_balance' => $pointsBalance,
+            ]);
             break;
         }
 
