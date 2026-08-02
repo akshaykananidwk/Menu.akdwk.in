@@ -53,6 +53,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('standees',$activeNav,'/admin/standees.php','bi-qr-code','Standee Templates') ?>
       <div class="nav-section">Communication</div>
       <?= nav_item('whatsapp',$activeNav,'/admin/whatsapp.php','bi-whatsapp','WhatsApp') ?>
+      <?= nav_item('wa_cloud',$activeNav,'/admin/wa_cloud.php','bi-meta','WhatsApp Cloud API') ?>
       <?= nav_item('broadcast',$activeNav,'/admin/broadcast.php','bi-megaphone','Broadcast') ?>
       <?= nav_item('notices',$activeNav,'/admin/notices.php','bi-pin-angle','Notice Board') ?>
       <?= nav_item('tickets',$activeNav,'/admin/tickets.php','bi-life-preserver','Support Tickets') ?>

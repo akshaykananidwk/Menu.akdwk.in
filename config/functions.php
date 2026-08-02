@@ -975,6 +975,12 @@ function dispatchWhatsAppLog(int $logId, int $timeout = 20): bool {
         return false;
     }
 
+    // Meta WhatsApp Cloud API path (official). Falls through to the legacy
+    // gateway below when the provider is not 'cloud'.
+    if (function_exists('waCloudEnabled') && waCloudEnabled()) {
+        return waCloudDispatch($log, $logId);
+    }
+
     $payload = [
         'api_key'    => getWaSetting('api_key', ''),
         'number'     => $log['number'],

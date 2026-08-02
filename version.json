@@ -1,8 +1,12 @@
 {
-    "version": "1.8.2",
+    "version": "1.9.0",
     "released_on": "2026-07-23",
     "min_php": "8.0",
     "changelog": [
+        "Official Meta WhatsApp Cloud API integration (Admin → WhatsApp Cloud API): enter your Phone Number ID, WABA ID and Permanent Access Token, switch the provider to 'Cloud', and every message the system sends goes through Meta's official API. A 'Test Connection' shows your verified name, number and quality rating",
+        "Full template manager on the website: create Utility / Marketing / Authentication templates with header (text or image/document/video), body variables, footer and buttons (quick-reply, visit-URL, call, copy-code), submit them to Meta for approval, and see live Approved / Pending / Rejected status with the rejection reason — then delete or rebuild, all without leaving the admin panel",
+        "Send tab: fire off a text, an approved template (with variables + media header — works anytime), a media message, or interactive reply-buttons to any number, with the result (accepted or the exact Meta error) shown instantly",
+        "Conversations tab: a WhatsApp-style outbound log grouped by contact — every message the system sent, its trigger, and accepted-vs-failed with the precise failure reason. (Delivery/read ticks and incoming customer replies come only via Meta's webhook, which has no polling API; the rest works today. The legacy gateway stays available and can be switched back anytime.)",
         "Fix (critical): the Staff App under /app now works — the base-URL detector didn't know about the new app/ and reception/ folders, so /app pages built wrong links and /app/waiter looped (ERR_TOO_MANY_REDIRECTS). Added them to the detector; the app, its icons, service worker and all three role screens now load correctly",
         "Fix: opening /app/waiter, /app/kitchen or /app/reception directly no longer shows 'Page not found' — those URLs now redirect to the right screen (the app itself already routes there after login)",
         "New database updates now apply automatically when the restaurant owner opens their panel too (not only the Super Admin) — so the Property Code and Reception role appear without waiting for an admin login",
