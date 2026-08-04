@@ -71,6 +71,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('ai_usage',$activeNav,'/admin/ai_usage.php','bi-cpu','AI Usage & Cost') ?>
       <div class="nav-section">System</div>
       <?= nav_item('settings',$activeNav,'/admin/settings.php','bi-gear','Settings') ?>
+      <?= nav_item('cron',$activeNav,'/admin/cron.php','bi-alarm','Cron & Tasks') ?>
       <?= nav_item('updates',$activeNav,'/admin/updates.php','bi-cloud-arrow-down','Updates') ?>
       <?= nav_item('activity',$activeNav,'/admin/activity.php','bi-clock-history','Activity Log') ?>
       <?= nav_item('backup',$activeNav,'/admin/backup.php','bi-database','Backup') ?>

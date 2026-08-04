@@ -1,8 +1,11 @@
 {
-    "version": "1.9.0",
-    "released_on": "2026-07-23",
+    "version": "1.10.0",
+    "released_on": "2026-07-24",
     "min_php": "8.0",
     "changelog": [
+        "Centralized cron / scheduler: configure just ONE server cron (every minute → /cron/run.php) and the app runs every background job internally. WhatsApp queue, subscription/payment reminders, plan-expiry checks, daily auto-reports, AI-usage cleanup, update checks and an optional nightly database backup are now all driven from one place",
+        "Admin → Cron & Tasks: see each job's status (success/failed/running), last & next run, duration and message; enable/disable any job; run a job manually; 'Run all due now'; 'Retry failed'; per-job execution history; and a health banner that warns if the server cron isn't firing. The exact one-line cron command (with your secret) is shown ready to copy",
+        "Production-grade internals: per-job atomic DB locking prevents overlapping/duplicate runs (with stale-lock recovery), every run is logged with duration + outcome, and each job is isolated so one failure never blocks the others. Adding a future scheduled task is one line in the registry — no new server cron ever again. The old individual cron URLs still work (they now delegate to the same scheduler)",
         "Official Meta WhatsApp Cloud API integration (Admin → WhatsApp Cloud API): enter your Phone Number ID, WABA ID and Permanent Access Token, switch the provider to 'Cloud', and every message the system sends goes through Meta's official API. A 'Test Connection' shows your verified name, number and quality rating",
         "Full template manager on the website: create Utility / Marketing / Authentication templates with header (text or image/document/video), body variables, footer and buttons (quick-reply, visit-URL, call, copy-code), submit them to Meta for approval, and see live Approved / Pending / Rejected status with the rejection reason — then delete or rebuild, all without leaving the admin panel",
         "Send tab: fire off a text, an approved template (with variables + media header — works anytime), a media message, or interactive reply-buttons to any number, with the result (accepted or the exact Meta error) shown instantly",

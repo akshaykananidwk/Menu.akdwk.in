@@ -85,6 +85,7 @@ require CONFIG_PATH . '/functions.php';
 require CONFIG_PATH . '/seo.php';
 require CONFIG_PATH . '/ai_metering.php';
 require CONFIG_PATH . '/wa_cloud.php';
+require CONFIG_PATH . '/scheduler.php';
 
 // Apply saved timezone / idle-timeout once DB helpers are available.
 if (isset($pdo)) {
