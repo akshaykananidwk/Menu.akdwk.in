@@ -14,14 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = __('account_locked');
     } elseif ($mode === 'otp') {
         $otp = trim($_POST['otp'] ?? '');
-        $login = normalizeMobile($login); // match how the OTP was sent/stored
-        $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE mobile = :m', [':m' => $login]);
+        // One field, both channels. The OTP row is keyed by whatever identifier
+        // api/auth.php sent the code to: a lowercased e-mail or a 10-digit mobile.
+        if (strpos($login, '@') !== false) {
+            $login  = strtolower($login);
+            $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE email = :e', [':e' => $login]);
+        } else {
+            $login  = normalizeMobile($login); // match how the OTP was sent/stored
+            $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE mobile = :m', [':m' => $login]);
+        }
         if ($tenant && verifyOtp($login, $otp, 'login')) {
             doClientLogin($tenant, $ident);
         } else { recordFailedLogin($ident); $error = 'Invalid or expired OTP.'; }
     } else {
-        // Password mode: match by mobile OR email.
-        $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE mobile = :m OR email = :e', [':m' => $login, ':e' => $login]);
+        // Password mode: match by mobile OR email. Mobile is normalised so
+        // "+91 99781 23146", "099781..." and "9978123146" all resolve.
+        $asMobile = strpos($login, '@') === false ? normalizeMobile($login) : '';
+        $tenant = db_one(
+            'SELECT * FROM ' . tbl('tenants') . ' WHERE email = :e OR mobile = :m OR mobile = :n LIMIT 1',
+            [':e' => strtolower($login), ':m' => $login, ':n' => $asMobile !== '' ? $asMobile : $login]
+        );
         if ($tenant && password_verify($_POST['password'] ?? '', $tenant['password'])) {
             doClientLogin($tenant, $ident);
         } else { recordFailedLogin($ident); $error = __('invalid_login'); }
@@ -61,13 +73,16 @@ $siteName = getSetting('site_name', 'AK Menu System');
     <div class="tab-pane fade show active" id="pw">
       <form method="post"><?= csrfField() ?><input type="hidden" name="mode" value="password">
         <div class="mb-3"><label class="form-label">Mobile / Email</label><input name="login" class="form-control" required></div>
-        <div class="mb-3"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
+        <div class="mb-1"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
+        <div class="mb-3 text-end">
+          <a href="<?= e(BASE_URL) ?>/client/forgot_password.php" class="small text-decoration-none">Forgot password?</a>
+        </div>
         <button class="btn btn-danger w-100">Login</button></form>
     </div>
     <div class="tab-pane fade" id="otp">
       <form method="post"><?= csrfField() ?><input type="hidden" name="mode" value="otp">
-        <div class="mb-2"><label class="form-label">Registered Mobile</label>
-          <div class="input-group"><input name="login" id="otpMobile" class="form-control" inputmode="tel" placeholder="10-digit mobile" required>
+        <div class="mb-2"><label class="form-label">Registered Mobile or Email</label>
+          <div class="input-group"><input name="login" id="otpMobile" class="form-control" placeholder="Mobile or email" required>
             <button type="button" class="btn btn-outline-danger" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button></div></div>
         <div id="otpMsg" class="small mb-2" style="display:none"></div>
         <div class="mb-3"><label class="form-label">Enter OTP</label>
@@ -103,11 +118,12 @@ function startCooldown(sec){
 }
 function sendOtp(){
   const m = (document.getElementById('otpMobile').value || '').trim();
-  if(!m){ showOtpMsg('Please enter your registered mobile number.', false); return; }
+  if(!m){ showOtpMsg('Please enter your registered mobile number or e-mail address.', false); return; }
   otpBtn.disabled = true; otpBtn.textContent = 'Sending…';
-  AK.post('<?= e(BASE_URL) ?>/api/auth.php?action=send_otp', {mobile:m}).then(r=>{
+  // `login` carries either channel; `mobile` kept so older cached pages still work.
+  AK.post('<?= e(BASE_URL) ?>/api/auth.php?action=send_otp', {login:m, mobile:m}).then(r=>{
     if(r && r.status === 'success'){
-      showOtpMsg((r.message || 'OTP sent to your WhatsApp.'), true);
+      showOtpMsg((r.message || 'OTP sent.'), true);
       startCooldown((r.data && r.data.cooldown) ? r.data.cooldown : 30);
     } else {
       showOtpMsg((r && r.message) || 'Could not send OTP. Please try again.', false);

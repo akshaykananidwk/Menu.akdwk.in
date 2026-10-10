@@ -34,7 +34,8 @@ $mobile= preg_replace('/[^0-9]/', '', $_POST['mobile'] ?? '');
 if (strncmp($mobile, '0091', 4) === 0)                       { $mobile = substr($mobile, 4); }
 if (strlen($mobile) === 12 && strncmp($mobile, '91', 2) === 0) { $mobile = substr($mobile, 2); }
 $mobile = ltrim($mobile, '0');
-$email = trim($_POST['email'] ?? '');
+// Lowercased: e-mail is a login identifier, so it must match case-insensitively.
+$email = strtolower(trim($_POST['email'] ?? ''));
 $city  = trim($_POST['city'] ?? '');
 $pass  = $_POST['password'] ?? '';
 $lang  = in_array($_POST['language'] ?? '', ['en', 'gu'], true) ? $_POST['language'] : getSetting('default_language', 'en');
@@ -149,7 +150,7 @@ if (!empty($paths)) {
     }
 }
 
-// ---- Generate QR + fire WhatsApp welcome (best-effort, never blocks signup) --
+// ---- Generate QR + fire welcome messages (best-effort, never blocks signup) --
 $menuUrl = publicMenuUrl($slug);
 try { generateQr($menuUrl, $slug); } catch (Throwable $e) { /* non-fatal */ }
 try {
@@ -158,7 +159,12 @@ try {
         'restaurant_name' => $name,
         'menu_url'        => $menuUrl,
         'mobile'          => $mobile,
-        'password'        => $pass,
+        'email'           => $email,
+        'login_url'       => BASE_URL . '/client/login.php',
+        // Never transmit the plaintext password. The owner just typed it, and
+        // "Forgot password" can always mail or WhatsApp a reset. Kept as a key
+        // so existing templates containing {{password}} still render cleanly.
+        'password'        => '(the password you chose)',
         'plan_name'       => $plan['name'],
         'expiry_date'     => date('d-m-Y', strtotime("+$validity days")),
         'qr_url'          => BASE_URL . '/uploads/qr/' . $slug . '.png',
@@ -169,6 +175,20 @@ try {
         sendWaTemplate('signup_qr', $mobile, $vars, BASE_URL . '/' . $qrRel, $tenantId, true);
     }
 } catch (Throwable $e) { /* WhatsApp failure must not fail signup */ }
+
+// ---- Welcome e-mail (queued; the master cron delivers it within a minute) ----
+try {
+    if ($email !== '' && mailerEnabled()) {
+        sendWelcomeEmail([
+            'id'              => $tenantId,
+            'owner_name'      => $owner,
+            'restaurant_name' => $name,
+            'email'           => $email,
+            'mobile'          => $mobile,
+            'slug'            => $slug,
+        ]);
+    }
+} catch (Throwable $e) { /* e-mail failure must not fail signup */ }
 
 // ---- Tell search engines a new menu was published ---------------------------
 if (function_exists('pingSearchEngines')) { pingSearchEngines($menuUrl); }

@@ -42,6 +42,8 @@ DROP TABLE IF EXISTS `{PREFIX}whatsapp_templates`;
 DROP TABLE IF EXISTS `{PREFIX}whatsapp_logs`;
 DROP TABLE IF EXISTS `{PREFIX}whatsapp_inbox`;
 DROP TABLE IF EXISTS `{PREFIX}otp_verifications`;
+DROP TABLE IF EXISTS `{PREFIX}email_logs`;
+DROP TABLE IF EXISTS `{PREFIX}password_resets`;
 
 -- ------------------------------------------------------------
 -- Super Admins
@@ -730,9 +732,11 @@ CREATE TABLE `{PREFIX}whatsapp_inbox` (
   KEY `idx_wain_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- `mobile` holds the OTP identifier: a 10-digit mobile OR an e-mail address
+-- (e-mail OTP login was added in 1.11.0), hence the 190-char width.
 CREATE TABLE `{PREFIX}otp_verifications` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `mobile` VARCHAR(20) NOT NULL,
+  `mobile` VARCHAR(190) NOT NULL,
   `otp` VARCHAR(10) NOT NULL,
   `purpose` VARCHAR(40) DEFAULT 'login',
   `attempts` INT NOT NULL DEFAULT 0,
@@ -741,6 +745,49 @@ CREATE TABLE `{PREFIX}otp_verifications` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_otp_mobile` (`mobile`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- E-mail queue + delivery log (welcome mail, reset links, OTP)
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}email_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` INT UNSIGNED DEFAULT NULL,
+  `to_email` VARCHAR(190) NOT NULL,
+  `to_name` VARCHAR(120) DEFAULT NULL,
+  `subject` VARCHAR(255) NOT NULL,
+  `body` MEDIUMTEXT NULL,
+  `trigger_key` VARCHAR(60) DEFAULT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'pending',
+  `response` TEXT NULL,
+  `retry_count` INT DEFAULT 0,
+  `sent_at` DATETIME DEFAULT NULL,
+  `created_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_email_status` (`status`,`id`),
+  KEY `idx_email_to` (`to_email`),
+  KEY `idx_email_tenant` (`tenant_id`,`id`),
+  KEY `idx_email_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Password-reset links. Only the SHA-256 of the token is stored,
+-- so a database leak cannot be replayed into account takeover.
+-- ------------------------------------------------------------
+CREATE TABLE `{PREFIX}password_resets` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_type` VARCHAR(20) NOT NULL DEFAULT 'tenant',
+  `user_id` INT UNSIGNED NOT NULL DEFAULT 0,
+  `email` VARCHAR(190) NOT NULL,
+  `token_hash` CHAR(64) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `used_at` DATETIME DEFAULT NULL,
+  `ip` VARCHAR(45) DEFAULT NULL,
+  `created_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_reset_token` (`token_hash`),
+  KEY `idx_reset_email` (`email`,`id`),
+  KEY `idx_reset_expiry` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

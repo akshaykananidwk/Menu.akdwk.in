@@ -55,6 +55,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('whatsapp',$activeNav,'/admin/whatsapp.php','bi-whatsapp','WhatsApp') ?>
       <?= nav_item('wa_cloud',$activeNav,'/admin/wa_cloud.php','bi-meta','WhatsApp Cloud API') ?>
       <?= nav_item('broadcast',$activeNav,'/admin/broadcast.php','bi-megaphone','Broadcast') ?>
+      <?= nav_item('emails',$activeNav,'/admin/emails.php','bi-envelope-at','E-mail Log') ?>
       <?= nav_item('notices',$activeNav,'/admin/notices.php','bi-pin-angle','Notice Board') ?>
       <?= nav_item('tickets',$activeNav,'/admin/tickets.php','bi-life-preserver','Support Tickets') ?>
       <div class="nav-section">Growth</div>
@@ -75,6 +76,7 @@ function nav_item(string $key, string $active, string $url, string $icon, string
       <?= nav_item('updates',$activeNav,'/admin/updates.php','bi-cloud-arrow-down','Updates') ?>
       <?= nav_item('activity',$activeNav,'/admin/activity.php','bi-clock-history','Activity Log') ?>
       <?= nav_item('backup',$activeNav,'/admin/backup.php','bi-database','Backup') ?>
+      <?= nav_item('help',$activeNav,'/admin/help.php','bi-life-preserver','System Guide') ?>
       <a class="nav-link" href="<?= e(BASE_URL) ?>/admin/logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
     </nav>
   </aside>

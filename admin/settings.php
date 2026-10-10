@@ -20,8 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'primary_color', 'secondary_color', 'accent_color', 'theme_mode', 'font_family',
         // Contact
         'contact_email', 'support_whatsapp',
-        // SMTP
+        // SMTP / e-mail
         'smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from_name',
+        'smtp_from_email', 'smtp_reply_to', 'smtp_secure', 'smtp_enabled',
         // AI
         'gemini_api_key', 'gemini_model', 'gemini_monthly_limit', 'ai_cost_per_call',
         'ai_chatbot_enabled', 'ai_chatbot_daily_cap',
@@ -168,28 +169,87 @@ require __DIR__ . '/_header.php';
         </div>
       </div>
 
-      <!-- SMTP -->
+      <!-- SMTP / E-mail -->
       <div class="tab-pane fade" id="tab-smtp">
+        <div class="alert alert-light border small">
+          <strong><i class="bi bi-envelope-check"></i> What e-mail powers:</strong>
+          the welcome mail after signup, “Forgot password” reset links, login OTPs by e-mail,
+          and the “password was changed” security notice.
+          <br>Current transport: <strong><?= e(mailerTransportLabel()) ?></strong>
+          <?php if (!mailerHasSmtp()): ?>
+            <span class="text-warning-emphasis">— fill in the host below for reliable delivery.</span>
+          <?php endif; ?>
+        </div>
+
         <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">SMTP Host</label>
-            <input name="smtp_host" class="form-control" value="<?= e($v('smtp_host')) ?>">
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input type="hidden" name="smtp_enabled" value="0">
+              <input class="form-check-input" type="checkbox" role="switch" id="smtpEnabled"
+                     name="smtp_enabled" value="1" <?= $v('smtp_enabled','1') !== '0' ? 'checked' : '' ?>>
+              <label class="form-check-label" for="smtpEnabled">
+                <strong>E-mail sending is ON</strong>
+                <span class="text-muted small d-block">Turn this off to stop every outgoing e-mail without losing your settings.</span>
+              </label>
+            </div>
           </div>
+
           <div class="col-md-6">
-            <label class="form-label">SMTP Port</label>
-            <input name="smtp_port" class="form-control" value="<?= e($v('smtp_port', '587')) ?>">
+            <label class="form-label">SMTP Host <span class="text-muted small">e.g. smtp.gmail.com, mail.yourdomain.com</span></label>
+            <input name="smtp_host" class="form-control" value="<?= e($v('smtp_host')) ?>" placeholder="smtp.gmail.com">
           </div>
+          <div class="col-md-3">
+            <label class="form-label">Port</label>
+            <input name="smtp_port" class="form-control" value="<?= e($v('smtp_port', '587')) ?>" placeholder="587">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Encryption</label>
+            <?php $sec = $v('smtp_secure', ''); ?>
+            <select name="smtp_secure" class="form-select">
+              <option value="tls"  <?= $sec === 'tls'  ? 'selected' : '' ?>>STARTTLS (port 587)</option>
+              <option value="ssl"  <?= $sec === 'ssl'  ? 'selected' : '' ?>>SSL / TLS (port 465)</option>
+              <option value="none" <?= $sec === 'none' ? 'selected' : '' ?>>None (port 25)</option>
+            </select>
+          </div>
+
           <div class="col-md-6">
             <label class="form-label">SMTP Username</label>
-            <input name="smtp_user" class="form-control" value="<?= e($v('smtp_user')) ?>" autocomplete="off">
+            <input name="smtp_user" class="form-control" value="<?= e($v('smtp_user')) ?>" autocomplete="off" placeholder="Usually the full e-mail address">
           </div>
           <div class="col-md-6">
-            <label class="form-label">SMTP Password</label>
+            <label class="form-label">SMTP Password <span class="text-muted small">(Gmail: use an App Password)</span></label>
             <input type="password" name="smtp_pass" class="form-control" value="<?= e($v('smtp_pass')) ?>" autocomplete="new-password">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">From E-mail <span class="text-danger">*</span></label>
+            <input type="email" name="smtp_from_email" class="form-control" value="<?= e($v('smtp_from_email')) ?>" placeholder="noreply@yourdomain.com">
+            <div class="form-text">Must be an address this SMTP account is allowed to send as, or the relay will reject it.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">From Name</label>
-            <input name="smtp_from_name" class="form-control" value="<?= e($v('smtp_from_name')) ?>">
+            <input name="smtp_from_name" class="form-control" value="<?= e($v('smtp_from_name')) ?>" placeholder="<?= e($v('site_name','AK Menu System')) ?>">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Reply-To <span class="text-muted small">(optional)</span></label>
+            <input type="email" name="smtp_reply_to" class="form-control" value="<?= e($v('smtp_reply_to')) ?>" placeholder="support@yourdomain.com">
+          </div>
+
+          <div class="col-12">
+            <hr>
+            <label class="form-label fw-semibold">Send a test e-mail</label>
+            <div class="input-group" style="max-width:520px">
+              <input type="email" id="testMailTo" class="form-control" placeholder="your@email.com"
+                     value="<?= e($v('contact_email')) ?>">
+              <button type="button" class="btn btn-outline-primary" id="testMailBtn" onclick="sendTestMail()">
+                <i class="bi bi-send"></i> Send test
+              </button>
+            </div>
+            <div class="form-text">Save your settings first — the test uses the saved values, not what is on screen.</div>
+            <div id="testMailResult" class="mt-2 small" style="display:none"></div>
+            <a href="<?= e(BASE_URL) ?>/admin/emails.php" class="small d-inline-block mt-2">
+              <i class="bi bi-list-ul"></i> Open the e-mail log (every message, with the exact server reply)
+            </a>
           </div>
         </div>
       </div>
@@ -375,5 +435,42 @@ require __DIR__ . '/_header.php';
       .finally(() => { btn.disabled = false; });
   });
 })();
+
+// ---- SMTP test e-mail -------------------------------------------------------
+function sendTestMail(){
+  const base = document.querySelector('meta[name="base-url"]').content;
+  const box  = document.getElementById('testMailResult');
+  const btn  = document.getElementById('testMailBtn');
+  const to   = (document.getElementById('testMailTo').value || '').trim();
+  if(!to){ AK.toast('error', 'Enter an e-mail address to send the test to.'); return; }
+
+  // The SMTP trace is server output — escape it before it touches innerHTML.
+  const esc = s => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending…';
+  box.style.display = 'none';
+
+  AK.post(base + '/api/mail.php?action=test', {to: to})
+    .then(res => {
+      const d  = res.data || {};
+      const ok = res.status === 'success';
+      box.style.display = 'block';
+      box.className = 'mt-2 small alert ' + (ok ? 'alert-success' : 'alert-danger');
+      box.innerHTML =
+        '<div class="fw-semibold">' + (ok
+          ? '<i class="bi bi-check-circle"></i> Sent — check the inbox (and the spam folder).'
+          : '<i class="bi bi-exclamation-triangle"></i> Could not send.') + '</div>' +
+        '<div class="mt-1"><span class="text-muted">Transport:</span> ' + esc(d.transport || '-') + '</div>' +
+        '<div class="mt-1" style="word-break:break-word"><span class="text-muted">Server said:</span> ' +
+          esc(d.detail || res.message || '-') + '</div>';
+    })
+    .catch(() => {
+      box.style.display = 'block';
+      box.className = 'mt-2 small alert alert-danger';
+      box.textContent = 'Request failed.';
+    })
+    .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Send test'; });
+}
 </script>
 <?php require __DIR__ . '/_footer.php'; ?>

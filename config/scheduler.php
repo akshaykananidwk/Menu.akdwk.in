@@ -30,6 +30,18 @@ function cronRegistry(): array {
             'desc' => 'Dispatch pending WhatsApp messages (orders, OTP, reminders) every minute.',
         ],
         [
+            'key' => 'email_queue', 'title' => 'E-mail Queue',
+            'interval' => 1, 'at_hour' => null, 'default_enabled' => 1,
+            'handler' => 'cron_job_email_queue',
+            'desc' => 'Deliver pending e-mails (welcome, reset links, notifications) every minute.',
+        ],
+        [
+            'key' => 'email_cleanup', 'title' => 'E-mail & Token Cleanup',
+            'interval' => 0, 'at_hour' => 4, 'default_enabled' => 1,
+            'handler' => 'cron_job_email_cleanup',
+            'desc' => 'Delete expired password-reset tokens, used OTPs and e-mail logs older than 60 days.',
+        ],
+        [
             'key' => 'expiry_reminder', 'title' => 'Subscription & Payment Reminders',
             'interval' => 0, 'at_hour' => 9, 'default_enabled' => 1,
             'handler' => 'cron_job_expiry_reminder',
@@ -221,6 +233,44 @@ function cronHealth(): array {
 // =============================================================================
 
 /** WhatsApp queue — dispatch pending messages. */
+/**
+ * Deliver queued e-mails. Mirrors the WhatsApp queue: the SMTP conversation is
+ * slow (1-3s per message), so 25 per minute keeps the tick well under its
+ * 300s budget while still clearing ~36k mails a day.
+ */
+function cron_job_email_queue(): array {
+    if (!mailerEnabled()) {
+        return ['ok' => true, 'message' => 'Skipped — e-mail not configured (Admin → Settings → SMTP).'];
+    }
+    $pending = (int)db_val('SELECT COUNT(*) FROM ' . tbl('email_logs') . " WHERE status = 'pending' AND retry_count < " . MAIL_MAX_TRIES);
+    if ($pending === 0) { return ['ok' => true, 'message' => 'Nothing queued.']; }
+    $sent  = processEmailQueue(25, 20);
+    $left  = (int)db_val('SELECT COUNT(*) FROM ' . tbl('email_logs') . " WHERE status = 'pending' AND retry_count < " . MAIL_MAX_TRIES);
+    return ['ok' => true, 'message' => "Sent {$sent} of {$pending}. {$left} still queued."];
+}
+
+/**
+ * Housekeeping for the auth tables: expired reset tokens, spent OTPs and old
+ * e-mail logs. Keeps these tables small so login stays fast as we scale.
+ */
+function cron_job_email_cleanup(): array {
+    $parts = [];
+
+    $st = db_query('DELETE FROM ' . tbl('password_resets') . ' WHERE expires_at < :t OR used_at IS NOT NULL',
+        [':t' => date('Y-m-d H:i:s', time() - 86400)]);
+    $parts[] = ($st ? $st->rowCount() : 0) . ' reset token(s)';
+
+    $st = db_query('DELETE FROM ' . tbl('otp_verifications') . ' WHERE expires_at < :t',
+        [':t' => date('Y-m-d H:i:s', time() - 86400)]);
+    $parts[] = ($st ? $st->rowCount() : 0) . ' expired OTP(s)';
+
+    $st = db_query('DELETE FROM ' . tbl('email_logs') . ' WHERE created_at < :t',
+        [':t' => date('Y-m-d H:i:s', time() - 60 * 86400)]);
+    $parts[] = ($st ? $st->rowCount() : 0) . ' old e-mail log(s)';
+
+    return ['ok' => true, 'message' => 'Removed ' . implode(', ', $parts) . '.'];
+}
+
 function cron_job_whatsapp_queue(): array {
     $delay = (int)getWaSetting('send_delay', 0);
     $n = processWhatsAppQueue(50, 15, $delay);

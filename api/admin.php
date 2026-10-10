@@ -57,7 +57,27 @@ try {
 
             // --- Validation ---
             if ($restaurantName === '') { jsonError('Restaurant name is required.'); }
-            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) { jsonError('Invalid email address.'); }
+
+            // Mobile and e-mail are login identifiers, so canonicalise them and
+            // keep them unique across tenants (excluding this client on edit).
+            // Two tenants sharing one identifier would send a password-reset
+            // link, or a login, to the wrong restaurant.
+            if ($mobile !== '') {
+                $mobile = normalizeMobile($mobile);
+                if (!preg_match('/^[6-9]\d{9}$/', $mobile)) { jsonError('Enter a valid 10-digit mobile number.'); }
+                if (db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE mobile = :m AND id <> :id',
+                           [':m' => $mobile, ':id' => $id]) > 0) {
+                    jsonError('That mobile number is already used by another client.', 409);
+                }
+            }
+            if ($email !== '') {
+                $email = strtolower($email);
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { jsonError('Invalid email address.'); }
+                if (db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE email = :e AND id <> :id',
+                           [':e' => $email, ':id' => $id]) > 0) {
+                    jsonError('That e-mail address is already used by another client.', 409);
+                }
+            }
             if (!in_array($orderingMode, ['direct', 'waiter', 'view_only'], true)) { $orderingMode = 'view_only'; }
             if (!in_array($status, ['active', 'suspended', 'expired'], true)) { $status = 'active'; }
 
@@ -139,6 +159,21 @@ try {
                 }
             } catch (Throwable $e) {
                 error_log('Client welcome WhatsApp failed: ' . $e->getMessage());
+            }
+            // Welcome e-mail + a link to set their own password, so the admin's
+            // temporary password does not have to be the one they keep using.
+            try {
+                if ($email !== '' && mailerEnabled()) {
+                    $newTenant = [
+                        'id' => $newId, 'owner_name' => $ownerName ?: $restaurantName,
+                        'restaurant_name' => $restaurantName, 'email' => $email,
+                        'mobile' => $mobile, 'slug' => $slug,
+                    ];
+                    sendWelcomeEmail($newTenant);
+                    sendPasswordResetEmail($newTenant, 1440);   // 24h to choose a password
+                }
+            } catch (Throwable $e) {
+                error_log('Client welcome e-mail failed: ' . $e->getMessage());
             }
 
             jsonSuccess('Client created successfully.', [

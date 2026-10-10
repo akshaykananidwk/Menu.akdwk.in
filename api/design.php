@@ -103,8 +103,43 @@ try {
                     if ($rn === '') { jsonError('Restaurant name is required.'); }
                     $data['restaurant_name'] = $rn;
                 }
-                foreach (['owner_name', 'mobile', 'email', 'address', 'city'] as $f) {
+                foreach (['owner_name', 'address', 'city'] as $f) {
                     if (isset($_POST[$f])) { $data[$f] = trim($_POST[$f]) ?: null; }
+                }
+
+                // Mobile and e-mail are LOGIN IDENTIFIERS, so they get the same
+                // treatment as at signup: canonicalised, validated, and unique
+                // across tenants. Two restaurants sharing one identifier would
+                // make logins and password resets land on the wrong account.
+                if (isset($_POST['mobile'])) {
+                    $mob = normalizeMobile(trim($_POST['mobile']));
+                    if ($mob === '') {
+                        jsonError('Mobile number is required — it is your login.');
+                    }
+                    if (!preg_match('/^[6-9]\d{9}$/', $mob)) {
+                        jsonError('Enter a valid 10-digit mobile number.');
+                    }
+                    if (db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE mobile = :m AND id <> :id',
+                               [':m' => $mob, ':id' => $tid]) > 0) {
+                        jsonError('That mobile number is already used by another restaurant.', 409);
+                    }
+                    $data['mobile'] = $mob;
+                }
+
+                if (isset($_POST['email'])) {
+                    $em = strtolower(trim($_POST['email']));
+                    if ($em === '') {
+                        $data['email'] = null;           // clearing it is allowed
+                    } else {
+                        if (!filter_var($em, FILTER_VALIDATE_EMAIL)) {
+                            jsonError('Please enter a valid e-mail address.');
+                        }
+                        if (db_val('SELECT COUNT(*) FROM ' . tbl('tenants') . ' WHERE email = :e AND id <> :id',
+                                   [':e' => $em, ':id' => $tid]) > 0) {
+                            jsonError('That e-mail address is already used by another restaurant.', 409);
+                        }
+                        $data['email'] = $em;
+                    }
                 }
                 if (!empty($_FILES['logo']['name'])) {
                     $logo = uploadImage($_FILES['logo'], 'logos');

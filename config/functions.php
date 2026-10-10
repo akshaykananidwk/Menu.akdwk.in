@@ -238,11 +238,14 @@ function ensureTenantActive(): void {
     $t = currentTenant();
     if (!$t) { session_unset(); redirect(BASE_URL . '/client/login.php'); }
     if ($t['status'] !== 'active' || ($t['expiry_date'] && $t['expiry_date'] < date('Y-m-d'))) {
-        // Allow only the billing/upgrade page.
-        $script = $_SERVER['SCRIPT_NAME'] ?? '';
-        if (strpos($script, 'expired.php') === false && strpos($script, 'logout.php') === false) {
-            redirect(BASE_URL . '/client/expired.php');
+        // Allow only the billing/upgrade page, logging out, and the read-only
+        // Help guide (which is where "how do I renew?" is answered).
+        $script  = $_SERVER['SCRIPT_NAME'] ?? '';
+        $allowed = ['expired.php', 'logout.php', 'help.php'];
+        foreach ($allowed as $ok) {
+            if (strpos($script, $ok) !== false) { return; }
         }
+        redirect(BASE_URL . '/client/expired.php');
     }
 }
 
