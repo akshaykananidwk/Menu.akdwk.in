@@ -349,6 +349,29 @@ function activatePlanForTenant(int $tenantId, int $planId): bool {
     return true;
 }
 
+/** Raise an invoice for a plan purchase and return [invoiceId, invoiceNo, total]. */
+function planInvoice(int $tenantId, array $plan, string $status): array {
+    $amount = (float)$plan['price'];
+    $rate   = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
+    $tax    = round($amount * $rate / 100, 2);
+    $total  = $amount + $tax;
+    // Launch/welcome offer: auto-discount if the tenant is within the offer window.
+    $total  = applyLaunchDiscount($tenantId, $total);
+    $seq    = (int)db_val('SELECT COUNT(*) FROM ' . tbl('invoices')) + 1;
+    $invNo  = 'INV-' . date('Ym') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+    $id = db_insert('invoices', [
+        'tenant_id'  => $tenantId,
+        'invoice_no' => $invNo,
+        'plan_id'    => (int)$plan['id'],
+        'amount'     => $amount,
+        'tax'        => $tax,
+        'total'      => $total,
+        'status'     => $status,
+        'paid_on'    => $status === 'paid' ? date('Y-m-d') : null,
+    ]);
+    return [$id, $invNo, $total];
+}
+
 /** Whether online (Razorpay) checkout is fully configured. */
 function razorpayEnabled(): bool {
     return trim((string)getSetting('razorpay_key_id', '')) !== ''

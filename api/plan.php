@@ -25,28 +25,7 @@ $tenantId = (int)currentTenantId();
 $tenant   = currentTenant();
 if (!$tenant) { jsonError('Session expired.', 401); }
 
-/** Raise an invoice for a plan purchase and return [invoiceId, invoiceNo, total]. */
-function planInvoice(int $tenantId, array $plan, string $status): array {
-    $amount = (float)$plan['price'];
-    $rate   = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
-    $tax    = round($amount * $rate / 100, 2);
-    $total  = $amount + $tax;
-    // Launch/welcome offer: auto-discount if the tenant is within the offer window.
-    $total  = applyLaunchDiscount($tenantId, $total);
-    $seq    = (int)db_val('SELECT COUNT(*) FROM ' . tbl('invoices')) + 1;
-    $invNo  = 'INV-' . date('Ym') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
-    $id = db_insert('invoices', [
-        'tenant_id'  => $tenantId,
-        'invoice_no' => $invNo,
-        'plan_id'    => (int)$plan['id'],
-        'amount'     => $amount,
-        'tax'        => $tax,
-        'total'      => $total,
-        'status'     => $status,
-        'paid_on'    => $status === 'paid' ? date('Y-m-d') : null,
-    ]);
-    return [$id, $invNo, $total];
-}
+// planInvoice() lives in config/functions.php (shared with the Razorpay webhook).
 
 /** Notify the super admin about a new subscription request via WhatsApp (best effort). */
 function notifyAdminPlanRequest(array $tenant, array $plan, string $method, ?string $txn): void {

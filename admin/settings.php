@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'gemini_api_key', 'gemini_model', 'gemini_monthly_limit', 'ai_cost_per_call',
         'ai_chatbot_enabled', 'ai_chatbot_daily_cap',
         // Payments
-        'razorpay_key_id', 'razorpay_secret',
+        'razorpay_key_id', 'razorpay_secret', 'razorpay_webhook_secret',
         'upi_id', 'upi_number', 'upi_payee_name',
         // Localization
         'currency', 'timezone', 'date_format', 'default_language',
@@ -341,6 +341,18 @@ require __DIR__ . '/_header.php';
           <div class="col-md-6">
             <label class="form-label">Razorpay Secret</label>
             <input type="password" name="razorpay_secret" class="form-control" value="<?= e($v('razorpay_secret')) ?>" autocomplete="new-password">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Webhook URL <span class="text-muted small">(paste this in Razorpay → Settings → Webhooks)</span></label>
+            <div class="input-group">
+              <input class="form-control" id="rzpWebhookUrl" readonly value="<?= e(rtrim(BASE_URL, '/')) ?>/api/razorpay_webhook.php">
+              <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('rzpWebhookUrl').value);AK.toast('success','Copied')"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+            <div class="form-text">Active events: <b>payment.captured</b> and <b>order.paid</b>. If the client closes the page right after paying, the webhook still activates their plan.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Webhook Secret</label>
+            <input type="password" name="razorpay_webhook_secret" class="form-control" value="<?= e($v('razorpay_webhook_secret')) ?>" autocomplete="new-password" placeholder="Same secret you type in Razorpay">
           </div>
         </div>
       </div>
