@@ -136,7 +136,14 @@ if ($upi['id'] !== '') {
   </div>
 </div>
 
-<?php if ($pending): ?>
+<?php if ($expired && !$pending): ?>
+<div class="alert alert-danger d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-octagon fs-5"></i>
+  <div>Your plan has expired, so your menu and ordering are paused. Choose a plan below and pay<?= $online ? ' online — it activates <strong>instantly</strong>' : '' ?>.</div>
+</div>
+<?php endif; ?>
+
+<?php if ($pending && !$online): ?>
 <div class="alert alert-warning d-flex align-items-center gap-2">
   <i class="bi bi-hourglass-split fs-5"></i>
   <div>
@@ -210,14 +217,14 @@ if ($upi['id'] !== '') {
             <button class="btn btn-outline-primary w-100 buyBtn"
                     data-id="<?= (int)$p['id'] ?>" data-name="<?= e($p['name']) ?>"
                     data-price="<?= $pay ?>" data-days="<?= (int)$p['validity_days'] ?>"
-                    <?= $pending ? 'disabled' : '' ?>>
+                    <?= ($pending && !$online) ? 'disabled' : '' ?>>
               <i class="bi bi-arrow-repeat"></i> Renew / Extend
             </button>
           <?php else: ?>
             <button class="btn btn-primary w-100 buyBtn"
                     data-id="<?= (int)$p['id'] ?>" data-name="<?= e($p['name']) ?>"
                     data-price="<?= $pay ?>" data-days="<?= (int)$p['validity_days'] ?>"
-                    <?= $pending ? 'disabled' : '' ?>>
+                    <?= ($pending && !$online) ? 'disabled' : '' ?>>
               <i class="bi bi-bag-check"></i> <?= (float)$p['price'] > 0 ? 'Choose plan' : 'Request' ?>
             </button>
           <?php endif; ?>
@@ -278,22 +285,25 @@ if ($upi['id'] !== '') {
           <div class="fs-4 fw-bold text-primary" id="pmAmount"></div>
         </div>
 
+        <?php if (!$online): ?>
         <ul class="nav nav-pills pay-tab gap-2 mb-3" role="tablist">
           <?php if ($online): ?>
           <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#payOnline" type="button"><i class="bi bi-credit-card"></i> Pay Online</button></li>
           <?php endif; ?>
           <li class="nav-item"><button class="nav-link <?= $online ? '' : 'active' ?>" data-bs-toggle="pill" data-bs-target="#payOffline" type="button"><i class="bi bi-phone"></i> UPI / GPay</button></li>
         </ul>
+        <?php endif; ?>
 
         <div class="tab-content">
           <?php if ($online): ?>
           <div class="tab-pane fade show active" id="payOnline">
-            <p class="text-muted small">Pay securely by card, UPI or netbanking. Your plan activates instantly.</p>
+            <p class="text-muted small">Pay securely by <strong>UPI, GPay, PhonePe, card or netbanking</strong>. Your plan activates <strong>instantly</strong> and the invoice appears in Billing history.</p>
             <button class="btn btn-success w-100" id="rzpBtn"><i class="bi bi-lock-fill"></i> Pay <span class="rzpAmt"></span> now</button>
           </div>
           <?php endif; ?>
 
-          <div class="tab-pane fade <?= $online ? '' : 'show active' ?>" id="payOffline">
+          <?php if (!$online): ?>
+          <div class="tab-pane fade show active" id="payOffline">
             <ol class="small text-muted ps-3 mb-3">
               <li>Send <strong class="offAmt text-dark"></strong> by GPay / PhonePe / Paytm to
                   <strong class="text-dark"><?= e($upi['number']) ?></strong><?= $upi['id'] !== '' ? ' (' . e($upi['id']) . ')' : '' ?>.</li>
@@ -324,6 +334,7 @@ if ($upi['id'] !== '') {
               <button class="btn btn-primary w-100" type="submit"><i class="bi bi-check2-circle"></i> I've Paid — Notify Admin</button>
             </form>
           </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -369,12 +380,12 @@ document.querySelectorAll('.buyBtn').forEach(function(b){
     document.getElementById('pmPlan2').textContent = cur.name + ' plan';
     document.getElementById('pmDays').textContent = cur.days + ' days validity';
     document.getElementById('pmAmount').textContent = money(cur.price);
-    document.getElementById('offPlanId').value = cur.id;
+    const op = document.getElementById('offPlanId'); if (op) op.value = cur.id;
     document.querySelectorAll('.offAmt,.rzpAmt').forEach(function(el){ el.textContent = money(cur.price); });
 
     // UPI QR (if available for this plan)
     const qw = document.querySelector('.qrWrap');
-    if (QR[cur.id]) { document.getElementById('upiQr').src = QR[cur.id]; qw.style.display = ''; }
+    if (!qw) {} else if (QR[cur.id]) { document.getElementById('upiQr').src = QR[cur.id]; qw.style.display = ''; }
     else { qw.style.display = 'none'; }
 
     // WhatsApp deep-link
@@ -388,7 +399,8 @@ document.querySelectorAll('.buyBtn').forEach(function(b){
 });
 
 // ---- Offline "I've Paid" ----
-document.getElementById('offForm').addEventListener('submit', function(e){
+const offForm = document.getElementById('offForm');
+if (offForm) offForm.addEventListener('submit', function(e){
   e.preventDefault();
   const btn = e.submitter; btn.disabled = true;
   const fd = new FormData(e.target);

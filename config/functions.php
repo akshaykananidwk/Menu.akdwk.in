@@ -245,6 +245,17 @@ function ensureTenantActive(): void {
         foreach ($allowed as $ok) {
             if (strpos($script, $ok) !== false) { return; }
         }
+        // An EXPIRED (not suspended) restaurant can renew by itself: let it
+        // open the Plans page and the plan-payment API, and send it there.
+        $suspended = $t['status'] === 'suspended';
+        if (!$suspended) {
+            foreach (['/client/plans.php', '/api/plan.php', '/invoice.php'] as $ok) {
+                if (substr($script, -strlen($ok)) === $ok) { return; }
+            }
+            if (strpos($script, '/api/') !== false) { jsonError('Your plan has expired. Please renew.', 402); }
+            redirect(BASE_URL . '/client/plans.php');
+        }
+        if (strpos($script, '/api/') !== false) { jsonError('Your account is suspended.', 403); }
         redirect(BASE_URL . '/client/expired.php');
     }
 }

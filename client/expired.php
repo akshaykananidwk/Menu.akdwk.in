@@ -13,6 +13,9 @@ $tenant = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' =
 if (!$tenant) { session_unset(); redirect(BASE_URL . '/client/login.php'); }
 $plan = tenantPlan($tid);
 
+// Expired (not suspended) → renew yourself on the Plans page, no team needed.
+if ($tenant['status'] !== 'suspended') { redirect(BASE_URL . '/client/plans.php'); }
+
 // Self-contained upgrade/renew request (creates a support ticket).
 $sent = false; $err = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
