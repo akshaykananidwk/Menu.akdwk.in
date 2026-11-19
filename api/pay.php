@@ -66,6 +66,9 @@ try {
             jsonError('Could not start online payment: ' . $err, 502);
         }
 
+        // Bind this gateway order to the restaurant order it was created for.
+        $_SESSION['rzp_diner_orders'][$rzp['id']] = ['tenant_id' => $tid, 'order_id' => $orderId, 'paise' => $paise];
+
         jsonSuccess('', [
             'key_id'   => $cfg['key_id'],
             'order_id' => $rzp['id'],
@@ -102,6 +105,14 @@ try {
         if (!hash_equals($expected, $sig)) {
             jsonError('Payment could not be verified. If money was deducted, contact the restaurant.', 400);
         }
+        // The paid gateway order must be the one created for THIS order (and amount).
+        $bound = $_SESSION['rzp_diner_orders'][$rzpOrder] ?? null;
+        if (!$bound || (int)$bound['tenant_id'] !== $tid || (int)$bound['order_id'] !== $orderId
+            || (int)$bound['paise'] !== (int)round((float)$order['total'] * 100)) {
+            error_log('api/pay.php: razorpay order ' . $rzpOrder . ' not bound to order ' . $orderId);
+            jsonError('Payment received but could not be matched to this order. Please show payment ID ' . $rzpPay . ' at the counter.', 400);
+        }
+        unset($_SESSION['rzp_diner_orders'][$rzpOrder]);
         if ($order['payment_status'] !== 'paid') {
             db_update('orders', [
                 'payment_status' => 'paid',

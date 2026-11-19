@@ -12,6 +12,11 @@ $pages = [
     ['', 'weekly', '1.0'],
     ['signup.php', 'monthly', '0.8'],
     ['blog', 'weekly', '0.6'],
+    ['terms', 'yearly', '0.3'],
+    ['privacy', 'yearly', '0.3'],
+    ['refund', 'yearly', '0.3'],
+    ['shipping', 'yearly', '0.3'],
+    ['contact', 'yearly', '0.4'],
 ];
 // Cuisine/type pages.
 foreach (array_keys(seoCuisineTypes()) as $slug) { $pages[] = ["qr-menu-for/$slug", 'monthly', '0.6']; }

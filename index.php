@@ -440,6 +440,13 @@ footer a{color:#cbd5e1}
       </div>
     </div>
     <hr class="border-secondary my-3">
+    <div class="small text-center mb-2 d-flex flex-wrap justify-content-center gap-3">
+      <a href="<?= e(BASE_URL) ?>/terms">Terms &amp; Conditions</a>
+      <a href="<?= e(BASE_URL) ?>/privacy">Privacy Policy</a>
+      <a href="<?= e(BASE_URL) ?>/refund">Cancellation &amp; Refund</a>
+      <a href="<?= e(BASE_URL) ?>/shipping">Shipping &amp; Delivery</a>
+      <a href="<?= e(BASE_URL) ?>/contact">Contact Us</a>
+    </div>
     <div class="small text-secondary text-center">
       <?= e(getSetting('footer_text', '© ' . date('Y') . ' ' . $siteName)) ?> · <?= e(POWERED_BY) ?>
     </div>

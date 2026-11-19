@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Localization
         'currency', 'timezone', 'date_format', 'default_language',
         // Legal
-        'terms_content', 'privacy_content',
+        'terms_content', 'privacy_content', 'refund_content', 'shipping_content',
+        'contact_content', 'legal_business_name', 'business_address',
     ];
     foreach ($textKeys as $k) {
         if (array_key_exists($k, $_POST)) {
@@ -377,12 +378,35 @@ require __DIR__ . '/_header.php';
       <div class="tab-pane fade" id="tab-legal">
         <div class="row g-3">
           <div class="col-12">
+            <div class="alert alert-info small mb-0">These pages are public at <b>/terms</b>, <b>/privacy</b>, <b>/refund</b>, <b>/shipping</b> and <b>/contact</b>, and are linked in the website footer. Razorpay checks them before activating your account. Leave a box empty to use the ready-made default text.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Legal business name (as on PAN / GST)</label>
+            <input name="legal_business_name" class="form-control" value="<?= e($v('legal_business_name')) ?>" placeholder="e.g. AK Digital Works">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Business address</label>
+            <textarea name="business_address" class="form-control" rows="2"><?= e($v('business_address')) ?></textarea>
+          </div>
+          <div class="col-12">
             <label class="form-label">Terms &amp; Conditions</label>
             <textarea name="terms_content" class="form-control" rows="8"><?= e($v('terms_content')) ?></textarea>
           </div>
           <div class="col-12">
             <label class="form-label">Privacy Policy</label>
             <textarea name="privacy_content" class="form-control" rows="8"><?= e($v('privacy_content')) ?></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Cancellation &amp; Refund Policy</label>
+            <textarea name="refund_content" class="form-control" rows="6"><?= e($v('refund_content')) ?></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Shipping &amp; Delivery Policy</label>
+            <textarea name="shipping_content" class="form-control" rows="4"><?= e($v('shipping_content')) ?></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Contact Us — extra text (optional)</label>
+            <textarea name="contact_content" class="form-control" rows="3"><?= e($v('contact_content')) ?></textarea>
           </div>
         </div>
       </div>

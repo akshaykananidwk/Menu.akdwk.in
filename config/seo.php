@@ -189,6 +189,10 @@ function render_landing_foot(string $site): void {
     <strong>Product</strong><br>
     <a href="<?= $e(absUrl('')) ?>">Home</a> · <a href="<?= $e(absUrl('signup.php')) ?>">Sign up</a> · <a href="<?= $e(absUrl('blog')) ?>">Blog</a>
   </div>
+  <div>
+    <strong>Legal</strong><br>
+    <a href="<?= $e(absUrl('terms')) ?>">Terms</a> · <a href="<?= $e(absUrl('privacy')) ?>">Privacy</a> · <a href="<?= $e(absUrl('refund')) ?>">Refund</a> · <a href="<?= $e(absUrl('shipping')) ?>">Shipping</a> · <a href="<?= $e(absUrl('contact')) ?>">Contact</a>
+  </div>
   <div style="max-width:340px">
     <strong>Popular cities</strong><br>
     <?php foreach ($topCities as $i => $c): ?><?= $i ? ' · ' : '' ?><a href="<?= $e(absUrl('digital-menu/' . $c['slug'])) ?>"><?= $e($c['city_name']) ?></a><?php endforeach; ?>

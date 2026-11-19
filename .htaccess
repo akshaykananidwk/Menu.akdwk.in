@@ -64,6 +64,9 @@ RewriteRule ^([a-f0-9]{32})\.txt$ indexnow.php [L]
 RewriteRule ^digital-menu/([a-z0-9\-]+)/?$ digital-menu.php?slug=$1 [L,QSA]
 RewriteRule ^qr-menu-for/([a-z0-9\-]+)/?$ qr-menu-for.php?type=$1 [L,QSA]
 
+# ---- Legal / policy pages (needed for Razorpay activation) ----
+RewriteRule ^(terms|privacy|refund|shipping|contact)/?$ legal.php?page=$1 [L,QSA]
+
 # ---- Blog clean URLs ----
 RewriteRule ^blog/?$ blog.php [L,QSA]
 RewriteRule ^blog/category/([a-z0-9\-]+)/?$ blog.php?category=$1 [L,QSA]

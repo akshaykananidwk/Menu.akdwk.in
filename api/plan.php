@@ -142,6 +142,12 @@ try {
             jsonError('Could not start online payment: ' . $err);
         }
 
+        // Remember which plan + amount this gateway order is for, so verify
+        // cannot activate a different (pricier) plan with a cheaper payment.
+        $_SESSION['rzp_plan_orders'][$order['id']] = [
+            'tenant_id' => $tenantId, 'plan_id' => $planId, 'paise' => $paise, 'at' => time(),
+        ];
+
         jsonSuccess('', [
             'key_id'    => $keyId,
             'order_id'  => $order['id'],
@@ -177,6 +183,20 @@ try {
             jsonError('Payment could not be verified. If money was deducted, contact support.');
         }
 
+        // The order must be one we created in this session, for this tenant and plan.
+        $pending = $_SESSION['rzp_plan_orders'][$orderId] ?? null;
+        if (!$pending || (int)$pending['tenant_id'] !== $tenantId || (int)$pending['plan_id'] !== $planId) {
+            logActivity('tenant', $tenantId, 'Razorpay order/plan mismatch (' . $payId . ')');
+            jsonError('Payment received but could not be matched to this plan. Please contact support with ID ' . $payId . '.');
+        }
+
+        // Never activate the same payment twice (double click / page refresh).
+        $dup = db_val('SELECT id FROM ' . tbl('plan_requests') . " WHERE method = 'online' AND txn_ref = :p LIMIT 1", [':p' => $payId]);
+        if ($dup) {
+            unset($_SESSION['rzp_plan_orders'][$orderId]);
+            jsonSuccess('Payment already recorded. Your plan is active.');
+        }
+
         [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'paid');
         db_insert('plan_requests', [
             'tenant_id'    => $tenantId,
@@ -189,6 +209,7 @@ try {
             'processed_at' => date('Y-m-d H:i:s'),
         ]);
         activatePlanForTenant($tenantId, $planId);
+        unset($_SESSION['rzp_plan_orders'][$orderId]);
         logActivity('tenant', $tenantId, 'Paid online for ' . $plan['name'] . ' (' . $payId . ')');
 
         jsonSuccess('Payment successful! Your plan is now active.');
