@@ -91,13 +91,20 @@ require __DIR__ . '/_header.php';
           <span><?= $itemLimit['used'] ?> / <?= $itemLimit['max'] ?></span>
         </div>
         <div class="progress" style="height:10px;">
-          <div class="progress-bar bg-primary" style="width: <?= $pct ?>%"></div>
+          <div class="progress-bar <?= ($itemLimit['max'] > 0 && $itemLimit['used'] > $itemLimit['max']) ? 'bg-danger' : 'bg-primary' ?>" style="width: <?= $pct ?>%"></div>
         </div>
-        <?php if ($pct >= 90): ?>
+        <?php if ($itemLimit['max'] > 0 && $itemLimit['used'] > $itemLimit['max']): ?>
+          <div class="alert alert-danger small py-2 mt-2 mb-0">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            Your plan allows <strong><?= (int)$itemLimit['max'] ?></strong> items, but your menu has <strong><?= (int)$itemLimit['used'] ?></strong>.
+            Only the first <?= (int)$itemLimit['max'] ?> are shown to customers. <strong><?= (int)($itemLimit['used'] - $itemLimit['max']) ?></strong> items are hidden until you upgrade.
+            <a href="<?= e(BASE_URL) ?>/client/plans.php" class="alert-link">Upgrade now</a>
+          </div>
+        <?php elseif ($pct >= 90): ?>
           <small class="text-danger">You are close to your plan limit. Consider upgrading.</small>
         <?php endif; ?>
       </div>
-      <a href="<?= e(BASE_URL) ?>/client/settings.php" class="btn btn-outline-primary btn-sm mt-3">Manage Plan</a>
+      <a href="<?= e(BASE_URL) ?>/client/plans.php" class="btn btn-outline-primary btn-sm mt-3">Manage Plan</a>
     </div></div>
   </div>
 

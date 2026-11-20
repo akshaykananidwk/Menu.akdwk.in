@@ -86,6 +86,10 @@ try {
                                   WHERE id = :i AND tenant_id = :t AND status = 1',
                     [':i' => $itemId, ':t' => $tid]);
                 if (!$dbItem) { jsonError('One or more items are no longer available.'); }
+                $planIds = planAllowedItemIds($tid);
+                if ($planIds !== null && !in_array($itemId, $planIds, true)) {
+                    jsonError('"' . $dbItem['name'] . '" is not available right now.');
+                }
                 if ((int)$dbItem['is_available'] === 0) { jsonError('"' . $dbItem['name'] . '" is sold out.'); }
 
                 // Base unit price = discount price when set, else regular price.

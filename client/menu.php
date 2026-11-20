@@ -12,6 +12,13 @@ $apiUrl    = BASE_URL . '/api/menu.php';
 
 require __DIR__ . '/_header.php';
 ?>
+<?php if ($itemLimit['max'] > 0 && $itemLimit['used'] > $itemLimit['max']): ?>
+<div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <span><i class="bi bi-exclamation-triangle-fill"></i>
+    Your plan allows <strong><?= (int)$itemLimit['max'] ?></strong> items. You have <strong><?= (int)$itemLimit['used'] ?></strong>, so customers see only the first <?= (int)$itemLimit['max'] ?> (in menu order). Upgrade to show all, or remove items you don't need.</span>
+  <a href="<?= e(BASE_URL) ?>/client/plans.php" class="btn btn-sm btn-danger">Upgrade plan</a>
+</div>
+<?php endif; ?>
 <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
   <div>
     <span class="badge bg-light text-dark border">Items: <span id="itemUsed"><?= $itemLimit['used'] ?></span>/<?= $itemLimit['max'] ?></span>

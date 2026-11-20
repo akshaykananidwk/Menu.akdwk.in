@@ -1537,6 +1537,31 @@ function generateQr(string $data, string $filename): ?string {
 // =============================================================================
 
 /**
+ * Item ids a tenant's CURRENT plan lets it show, or null when everything is
+ * allowed. When a restaurant has more active items than its plan permits
+ * (e.g. it downgraded), only the first N items in menu order (category order,
+ * then item order) are shown and orderable. Nothing is deleted: upgrading the
+ * plan brings the rest back instantly.
+ *
+ * @return int[]|null
+ */
+function planAllowedItemIds(int $tenantId): ?array {
+    static $cache = [];
+    if (array_key_exists($tenantId, $cache)) return $cache[$tenantId];
+    $plan = tenantPlan($tenantId);
+    $max  = $plan ? (int)$plan['max_items'] : 0;
+    if (!$plan || $max <= 0 || $max >= 100000) { return $cache[$tenantId] = null; }
+    $total = (int)db_val('SELECT COUNT(*) FROM ' . tbl('items') . ' WHERE tenant_id = :t AND status = 1', [':t' => $tenantId]);
+    if ($total <= $max) { return $cache[$tenantId] = null; }
+    $rows = db_all('SELECT i.id FROM ' . tbl('items') . ' i
+                    LEFT JOIN ' . tbl('categories') . ' c ON c.id = i.category_id
+                    WHERE i.tenant_id = :t AND i.status = 1
+                    ORDER BY COALESCE(c.sort_order, 999999), COALESCE(c.id, 999999), i.sort_order, i.id
+                    LIMIT ' . $max, [':t' => $tenantId]);
+    return $cache[$tenantId] = array_map('intval', array_column($rows, 'id'));
+}
+
+/**
  * Build the canonical $menu array for a tenant. This is the SHAPE all menu
  * design templates receive. Templates must only read from this structure.
  *
@@ -1558,6 +1583,12 @@ function getTenantMenu(int $tenantId, bool $timeAware = true): array {
 
     $items = db_all('SELECT * FROM ' . tbl('items') . '
                      WHERE tenant_id = :t AND status = 1 ORDER BY sort_order, id', [':t' => $tenantId]);
+    // Respect the plan's item limit (extra items are hidden, not deleted).
+    $allowed = planAllowedItemIds($tenantId);
+    if ($allowed !== null) {
+        $keep  = array_flip($allowed);
+        $items = array_values(array_filter($items, fn($it) => isset($keep[(int)$it['id']])));
+    }
     // Attach variants + addons per item.
     $byCat = [];
     foreach ($items as $it) {
