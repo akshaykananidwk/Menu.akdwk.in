@@ -1,8 +1,9 @@
 {
-    "version": "1.13.0",
+    "version": "1.13.1",
     "released_on": "2026-11-21",
     "min_php": "8.0",
     "changelog": [
+        "AK Earn (earn.akdwk.in) partner tracking: sign-ups, plan orders, payments, renewals, refunds/cancels and the plan list are reported to the AK Earn master (signed, sent after the response, retried by the cron if the master is down). Configure in Admin → AK Earn; nothing is sent until the site key + secret are saved",
         "All WhatsApp templates rewritten in clear, professional English and Gujarati: welcome, QR, standee, menu updated, new order, order ready, thank-you + bill, plan expiring / expired (with a one-tap renew link), payment received (with invoice), OTP, support reply and daily summary",
         "Branded footer on messages to a restaurant's customers: 'Digital menu & QR ordering by …' plus a 'make one for your restaurant' sign-up link that carries that restaurant's referral code, so every sign-up is credited in Refer & Earn. Skipped for plans with Remove branding. Owner messages get a Team / support footer. Both editable (EN + GU) or switchable off in Admin → WhatsApp → Settings",
         "Customer bill link on WhatsApp now opens a real mobile bill page (/r/bill.php) instead of showing '{invoice_url}'; unfilled placeholders are never sent",

@@ -198,6 +198,7 @@ function render_landing_foot(string $site): void {
     <?php foreach ($topCities as $i => $c): ?><?= $i ? ' · ' : '' ?><a href="<?= $e(absUrl('digital-menu/' . $c['slug'])) ?>"><?= $e($c['city_name']) ?></a><?php endforeach; ?>
   </div>
 </div></footer>
+<?= akEarnScriptTag() ?>
 </body></html>
 <?php
 }

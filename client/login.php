@@ -138,4 +138,5 @@ function sendOtp(){
   }).catch(()=>{ showOtpMsg('Network error. Please try again.', false); otpBtn.disabled = false; otpBtn.textContent = 'Send OTP'; });
 }
 </script>
+<?= akEarnScriptTag() ?>
 </body></html>

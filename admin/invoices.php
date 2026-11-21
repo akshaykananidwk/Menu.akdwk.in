@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'total'      => $total,
                 'status'     => 'unpaid',
             ]);
+            akEarnInvoiceCreated((int)db_val('SELECT id FROM ' . tbl('invoices') . ' WHERE invoice_no = :n ORDER BY id DESC LIMIT 1', [':n' => $invoiceNo]));
             logActivity('super_admin', $_SESSION['admin_id'] ?? null, "Generated invoice $invoiceNo");
         }
     } elseif ($action === 'record_payment') {
@@ -105,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $paid = $inv['status'] === 'paid';
             if ($paid) {
                 db_update('invoices', ['status' => 'unpaid', 'paid_on' => null], ['id' => $id]);
+                akEarnInvoiceReversed($inv, 'Payment reversed: invoice marked unpaid by admin'); // AK Earn refund
             } else {
                 markPlanInvoicePaid($id);
             }
@@ -113,7 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
+            $before = db_one('SELECT * FROM ' . tbl('invoices') . ' WHERE id = :id', [':id' => $id]);
             db_query('DELETE FROM ' . tbl('invoices') . ' WHERE id = :id', [':id' => $id]);
+            if ($before) { akEarnInvoiceReversed($before, 'Invoice deleted by admin'); } // AK Earn refund / cancel
             logActivity('super_admin', $_SESSION['admin_id'] ?? null, "Deleted invoice #$id");
         }
     }

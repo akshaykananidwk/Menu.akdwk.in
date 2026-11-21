@@ -26,6 +26,8 @@
 return [
     'config/db.php',
     'config/installed.lock',
+    'config/ak_earn.local.php',   // AK Earn credentials (server-only)
+    'libs/ak-connect/queue',      // AK Earn retry queue
     'uploads',
     'backups',
     'temp',

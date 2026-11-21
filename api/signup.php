@@ -109,6 +109,9 @@ if ($refCode !== '') {
     }
 }
 
+// ---- AK Earn: report the new customer account (after the response; never blocks) --
+akEarnSignup((int)$tenantId);
+
 // ---- Handle uploaded menu files + AI extraction -----------------------------
 $aiOk = false; $aiError = ''; $catCount = 0; $itemCount = 0;
 $paths = [];

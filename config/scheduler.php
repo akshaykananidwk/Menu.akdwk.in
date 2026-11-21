@@ -66,6 +66,12 @@ function cronRegistry(): array {
             'desc' => 'Check GitHub for a newer version (notify only — never installs).',
         ],
         [
+            'key' => 'ak_earn_queue', 'title' => 'AK Earn Retry Queue',
+            'interval' => 15, 'at_hour' => null, 'default_enabled' => 1,
+            'handler' => 'cron_job_ak_earn_queue',
+            'desc' => 'Re-send AK Earn tracking events that failed because the master was unreachable.',
+        ],
+        [
             'key' => 'db_backup', 'title' => 'Database Backup',
             'interval' => 0, 'at_hour' => 3, 'default_enabled' => 0,
             'handler' => 'cron_job_db_backup',
@@ -369,6 +375,12 @@ function cron_job_ai_rollup(): array {
 }
 
 /** Notify-only GitHub update check (never installs). */
+function cron_job_ak_earn_queue(): array {
+    if (!function_exists('akEarnBoot') || !akEarnBoot()) { return ['ok' => true, 'message' => 'AK Earn not configured — skipped.']; }
+    $n = ak_flush_queue(100);
+    return ['ok' => true, 'message' => "Re-sent {$n} queued AK Earn event(s)."];
+}
+
 function cron_job_check_update(): array {
     $current = (string)getSetting('app_version', defined('APP_VERSION') ? APP_VERSION : '');
     $owner = trim((string)getSetting('github_owner', ''));

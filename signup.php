@@ -66,7 +66,7 @@ body{font-family:'Poppins','Noto Sans Gujarati',system-ui,sans-serif;background:
       <?php endif; ?>
       <div class="stepdots"><span class="on" data-dot="1"></span><span data-dot="2"></span><span data-dot="3"></span></div>
 
-      <form id="signupForm" enctype="multipart/form-data" novalidate>
+      <form id="signupForm" enctype="multipart/form-data" novalidate data-ak-form>
         <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
         <input type="hidden" name="ref" value="<?= e(trim((string)($_GET['ref'] ?? ''))) ?>">
         <!-- honeypot -->
@@ -232,5 +232,6 @@ function showDone(d){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
+<?= akEarnScriptTag() ?>
 </body>
 </html>

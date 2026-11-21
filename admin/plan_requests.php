@@ -40,6 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } elseif ($action === 'reject') {
             db_update('plan_requests', ['status' => 'rejected', 'processed_at' => date('Y-m-d H:i:s')], ['id' => $id]);
+            // AK Earn: the unpaid invoice raised for this request is cancelled.
+            if (preg_match('/(INV-[0-9A-Za-z-]+)/', (string)$req['note'], $mm)) {
+                $rinv = db_one('SELECT * FROM ' . tbl('invoices') . " WHERE invoice_no = :n AND tenant_id = :t AND status = 'unpaid' LIMIT 1", [':n' => $mm[1], ':t' => $tenantId]);
+                if ($rinv) { akEarnInvoiceReversed($rinv, 'Plan request rejected by admin'); }
+            }
             logActivity('super_admin', $_SESSION['admin_id'] ?? null, "Rejected plan request #$id");
         }
     }

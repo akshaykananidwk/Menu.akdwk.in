@@ -87,6 +87,7 @@ require CONFIG_PATH . '/ai_metering.php';
 require CONFIG_PATH . '/wa_cloud.php';
 require CONFIG_PATH . '/mailer.php';
 require CONFIG_PATH . '/scheduler.php';
+require CONFIG_PATH . '/ak_earn.php';   // AK Earn partner tracking (no-op until configured)
 
 // Apply saved timezone / idle-timeout once DB helpers are available.
 if (isset($pdo)) {

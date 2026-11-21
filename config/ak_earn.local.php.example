@@ -1,0 +1,9 @@
+<?php
+/**
+ * OPTIONAL: copy this file to config/ak_earn.local.php ON THE SERVER (it is
+ * git-ignored and never overwritten by updates) to keep the AK Earn
+ * credentials in a file instead of Admin → AK Earn. Never commit the real file.
+ */
+define('AK_MASTER_URL', 'https://earn.akdwk.in');
+define('AK_SITE_KEY', 'SITE_KEY_HERE');
+define('AK_SITE_SECRET', 'SITE_SECRET_HERE');

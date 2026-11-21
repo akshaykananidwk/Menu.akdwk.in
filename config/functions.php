@@ -493,12 +493,17 @@ function planInvoice(int $tenantId, array $plan, string $status, array $opts = [
             db_query('UPDATE ' . tbl('plan_coupons') . ' SET used_count = used_count + 1 WHERE code = :c', [':c' => strtoupper($opts['coupon_code'])]);
         }
     } catch (Throwable $e) { error_log('planInvoice details: ' . $e->getMessage()); }
+    // AK Earn: paid → payment_success / renewal, unpaid → order_created (runs after the response).
+    if (function_exists('akEarnInvoicePaid')) {
+        $status === 'paid' ? akEarnInvoicePaid((int)$id) : akEarnInvoiceCreated((int)$id);
+    }
     return [$id, $invNo, $total];
 }
 
 /** Mark an unpaid plan invoice paid (and consume its coupon once). */
 function markPlanInvoicePaid(int $invoiceId, string $mode = '', string $ref = ''): void {
     db_update('invoices', ['status' => 'paid', 'paid_on' => date('Y-m-d')], ['id' => $invoiceId]);
+    if (function_exists('akEarnInvoicePaid')) { akEarnInvoicePaid($invoiceId); } // AK Earn: payment confirmed
     try {
         $d = db_one('SELECT * FROM ' . tbl('invoice_details') . ' WHERE invoice_id = :i', [':i' => $invoiceId]);
         if ($d) {

@@ -137,6 +137,7 @@ try {
 
             $newId = db_insert('tenants', $data);
             logActivity('super_admin', $adminId, 'Created client #' . $newId . ' (' . $restaurantName . ')');
+            akEarnSignup((int)$newId); // AK Earn: customer account created (non-blocking)
 
             // Best-effort onboarding: generate QR + fire welcome WhatsApp. Never fail signup on these.
             $qrPath = null;
@@ -266,11 +267,13 @@ try {
                 }
                 db_update('plans', $data, ['id' => $id]);
                 logActivity('super_admin', $adminId, 'Updated plan #' . $id . ' (' . $name . ')');
+                akEarnSyncPlans(); // AK Earn product list (non-blocking)
                 jsonSuccess('Plan updated.', ['id' => $id]);
             }
 
             $newId = db_insert('plans', $data);
             logActivity('super_admin', $adminId, 'Created plan #' . $newId . ' (' . $name . ')');
+            akEarnSyncPlans();
             jsonSuccess('Plan created.', ['id' => $newId]);
         }
 
@@ -286,6 +289,7 @@ try {
             if ($inUse > 0) { jsonError('Cannot delete: ' . $inUse . ' client(s) are on this plan.'); }
             db_query('DELETE FROM ' . tbl('plans') . ' WHERE id = :id', [':id' => $id]);
             logActivity('super_admin', $adminId, 'Deleted plan #' . $id . ' (' . $p['name'] . ')');
+            akEarnSyncPlans();
             jsonSuccess('Plan deleted.');
         }
 
@@ -299,6 +303,7 @@ try {
             $new = (int)$p['status'] === 1 ? 0 : 1;
             db_update('plans', ['status' => $new], ['id' => $id]);
             logActivity('super_admin', $adminId, 'Set plan #' . $id . ' status to ' . $new);
+            akEarnSyncPlans();
             jsonSuccess('Plan status updated.', ['status' => $new]);
         }
 
