@@ -1205,7 +1205,12 @@ function sendWaTemplate(string $triggerKey, string $number, array $vars = [], ?s
     if (!$tpl) return null;
     $lang = ($tenantId && ($t = db_one('SELECT language FROM ' . tbl('tenants') . ' WHERE id=:i', [':i'=>$tenantId]))) ? $t['language'] : getSetting('default_language', 'en');
     $body = $lang === 'gu' && !empty($tpl['message_gu']) ? $tpl['message_gu'] : $tpl['message_en'];
-    $body = renderPlaceholders($body, $vars);
+    $body = renderPlaceholders($body, $vars + waDefaultVars($tenantId));
+    // Never send a raw "{placeholder}" to a customer: drop any token nobody filled,
+    // and tidy the empty "Label: " / blank lines it leaves behind.
+    $body = preg_replace('/\{[a-z_]+\}/i', '', $body);
+    $body = preg_replace('/[ \t]+\n/', "\n", $body);
+    $body = preg_replace("/\n{3,}/", "\n\n", trim($body));
     return sendWhatsApp($number, $body, $mediaUrl, $tenantId, $triggerKey, $immediate);
 }
 
@@ -1214,6 +1219,48 @@ function renderPlaceholders(string $tpl, array $vars): string {
     $tpl = str_replace('\n', "\n", $tpl);
     foreach ($vars as $k => $v) { $tpl = str_replace('{' . $k . '}', (string)$v, $tpl); }
     return $tpl;
+}
+
+/**
+ * Standard variables every WhatsApp template may use, filled from the
+ * restaurant row: restaurant_name, owner_name, menu_url, mobile, plan_name,
+ * expiry_date, login_url. Caller-supplied values always win.
+ */
+function waDefaultVars(?int $tenantId): array {
+    $v = ['login_url' => BASE_URL . '/client/login.php', 'site_name' => getSetting('site_name', 'AK Menu System')];
+    if (!$tenantId) return $v;
+    try {
+        $t = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :i', [':i' => $tenantId]);
+        if (!$t) return $v;
+        $plan = tenantPlan($tenantId);
+        $v += [
+            'restaurant_name' => $t['restaurant_name'],
+            'owner_name'      => $t['owner_name'] ?: $t['restaurant_name'],
+            'name'            => $t['owner_name'] ?: $t['restaurant_name'],
+            'menu_url'        => publicMenuUrl($t['slug']),
+            'mobile'          => $t['mobile'],
+            'plan_name'       => $plan['name'] ?? '-',
+            'expiry_date'     => $t['expiry_date'] ? date('d-m-Y', strtotime($t['expiry_date'])) : '-',
+        ];
+    } catch (Throwable $e) { /* best effort */ }
+    return $v;
+}
+
+/** Secret used to sign public bill links (generated once, stored in settings). */
+function billLinkSecret(): string {
+    $s = (string)getSetting('bill_link_secret', '');
+    if ($s === '') { $s = bin2hex(random_bytes(24)); setSetting('bill_link_secret', $s); }
+    return $s;
+}
+
+/** Signature for one order's public bill link. */
+function orderBillToken(array $order): string {
+    return substr(hash_hmac('sha256', (int)$order['id'] . '|' . (int)$order['tenant_id'] . '|' . $order['order_no'], billLinkSecret()), 0, 20);
+}
+
+/** Public, unguessable link to a diner's bill (sent on WhatsApp as {invoice_url} / {bill_url}). */
+function orderBillUrl(array $order): string {
+    return rtrim(BASE_URL, '/') . '/r/bill.php?o=' . (int)$order['id'] . '&k=' . orderBillToken($order);
 }
 
 // =============================================================================

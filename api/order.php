@@ -352,9 +352,12 @@ try {
             if (in_array($newStatus, ['ready', 'completed'], true) && !empty($order['customer_mobile'])) {
                 try {
                     $tpl = $newStatus === 'ready' ? 'order_ready' : 'order_completed';
+                    $billUrl = orderBillUrl($order);
                     sendWaTemplate($tpl, $order['customer_mobile'], [
-                        'order_no' => $order['order_no'],
-                        'total'    => money($order['total']),
+                        'order_no'    => $order['order_no'],
+                        'total'       => money($order['total']),
+                        'invoice_url' => $billUrl,
+                        'bill_url'    => $billUrl,
                     ], null, $tid);
                 } catch (Throwable $e) {
                     error_log('status WA failed: ' . $e->getMessage());
@@ -408,9 +411,12 @@ try {
             // Fire order_completed only on the first transition into completed.
             if ($newStatus === 'completed' && $order['status'] !== 'completed' && !empty($order['customer_mobile'])) {
                 try {
+                    $billUrl = orderBillUrl($order);
                     sendWaTemplate('order_completed', $order['customer_mobile'], [
-                        'order_no' => $order['order_no'],
-                        'total'    => money($order['total']),
+                        'order_no'    => $order['order_no'],
+                        'total'       => money($order['total']),
+                        'invoice_url' => $billUrl,
+                        'bill_url'    => $billUrl,
                     ], null, $tid);
                 } catch (Throwable $e) {
                     error_log('collect WA failed: ' . $e->getMessage());
