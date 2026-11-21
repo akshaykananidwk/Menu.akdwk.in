@@ -1,8 +1,16 @@
 {
-    "version": "1.11.0",
-    "released_on": "2026-10-10",
+    "version": "1.12.0",
+    "released_on": "2026-11-21",
     "min_php": "8.0",
     "changelog": [
+        "Admin → Invoices → Record Payment: record a subscription payment received by cash, GPay/UPI, bank transfer, card or cheque — with a % or ₹ discount or a coupon — and the client instantly gets a PAID invoice in Plans & Billing (plus a WhatsApp with the invoice link). Choose 'activate/extend the plan now' or 'plan already active, only create the bill'",
+        "Admin → Plan Coupons: create subscription coupon codes (% off with optional cap, or fixed ₹ off), limited to one plan or any plan, with total-use limit, once-per-restaurant and expiry. Clients apply them on Plans & Billing before paying; the price is re-checked on the server",
+        "Invoices now show the plan price, the discount (offer / coupon / special discount), taxable value + GST, how it was paid and the transaction reference",
+        "Razorpay: webhook endpoint (/api/razorpay_webhook.php) so a plan activates even if the client closes the page after paying; Webhook Secret + copyable URL in Settings → Payments",
+        "Expired restaurants go straight to Plans & Billing and can pay online to renew instantly — no manual approval. When Razorpay is on, only the instant online option is shown",
+        "Plan item limit is now enforced on the live menu after a downgrade: extra items are hidden (never deleted) until the plan is upgraded, with a clear warning on the dashboard and menu page",
+        "Public policy pages for payment-gateway approval: /terms, /privacy, /refund, /shipping, /contact (editable in Settings → Legal) and linked in the footer",
+        "Security: Razorpay payments are bound to the exact plan/order and amount they were created for, and a payment can never be applied twice",
         "Help & Guide (client panel): a complete, searchable manual in English AND Gujarati — one button switches language. Category-wise and step-by-step: your first 20 minutes, how the whole system works, login & password, menu, AI menu import, design, QR & standees, orders & payment collection, tables & Call Waiter, the Staff App (Property Code, Waiter/Kitchen/Reception), reservations, coupons/loyalty/customers, diner online payment, reports & AI Advisor, TV board & chatbot, WhatsApp, the settings to check once, and 8 common problems with their fixes. Printable, and still readable when a plan has expired",
         "System Guide (Admin → System Guide): the operator's manual — a live readiness check (database, master cron, e-mail transport, WhatsApp provider, Gemini key, payment method, Search Console) plus the exact order to configure everything in, what each background program does, and how the code is laid out",
         "E-mail now fully working. A dependency-free SMTP client (no Composer needed) speaks EHLO → STARTTLS/SSL → AUTH LOGIN or PLAIN → MAIL FROM → RCPT TO → DATA, with a plain-text + HTML multipart body and correct UTF-8 encoding, so Gujarati subjects and names arrive intact. Falls back to the server's own mail() when no SMTP host is set",

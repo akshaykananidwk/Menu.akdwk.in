@@ -360,16 +360,114 @@ function activatePlanForTenant(int $tenantId, int $planId): bool {
     return true;
 }
 
-/** Raise an invoice for a plan purchase and return [invoiceId, invoiceNo, total]. */
-function planInvoice(int $tenantId, array $plan, string $status): array {
-    $amount = (float)$plan['price'];
-    $rate   = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
-    $tax    = round($amount * $rate / 100, 2);
-    $total  = $amount + $tax;
-    // Launch/welcome offer: auto-discount if the tenant is within the offer window.
-    $total  = applyLaunchDiscount($tenantId, $total);
-    $seq    = (int)db_val('SELECT COUNT(*) FROM ' . tbl('invoices')) + 1;
-    $invNo  = 'INV-' . date('Ym') . '-' . str_pad((string)$seq, 4, '0', STR_PAD_LEFT);
+/** One-time message shown after a redirect (rendered as a toast by admin/_footer.php). */
+function flash(string $type, string $message): void {
+    $_SESSION['flash'][] = ['type' => $type === 'error' ? 'error' : ($type === 'success' ? 'success' : 'info'), 'msg' => $message];
+}
+
+/** Payment modes an admin can record for a subscription payment. */
+function planPaymentModes(): array {
+    return [
+        'upi'    => 'GPay / PhonePe / UPI',
+        'cash'   => 'Cash',
+        'bank'   => 'Bank transfer (NEFT/IMPS)',
+        'card'   => 'Card',
+        'cheque' => 'Cheque',
+        'online' => 'Online (Razorpay)',
+        'other'  => 'Other',
+    ];
+}
+
+/** Gross plan price incl. GST, before any discount. */
+function planGross(array $plan): float {
+    $price = (float)$plan['price'];
+    $rate  = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
+    return round($price + $price * $rate / 100, 2);
+}
+
+/**
+ * Validate an admin-created subscription coupon for a tenant + plan against an
+ * amount (incl. GST). Does NOT consume it.
+ * @return array{valid:bool,discount:float,code:?string,coupon:?array,message:string}
+ */
+function planCouponEvaluate(string $code, int $tenantId, array $plan, float $amount): array {
+    $fail = fn(string $m) => ['valid' => false, 'discount' => 0.0, 'code' => null, 'coupon' => null, 'message' => $m];
+    $code = strtoupper(trim($code));
+    if ($code === '') return $fail('Please enter a coupon code.');
+    try {
+        $c = db_one('SELECT * FROM ' . tbl('plan_coupons') . ' WHERE code = :c AND status = 1', [':c' => $code]);
+    } catch (Throwable $e) { return $fail('Coupons are not available yet.'); }
+    if (!$c) return $fail('Invalid coupon code.');
+    if (!empty($c['expiry_date']) && $c['expiry_date'] < date('Y-m-d')) return $fail('This coupon has expired.');
+    if ((int)$c['usage_limit'] > 0 && (int)$c['used_count'] >= (int)$c['usage_limit']) return $fail('This coupon has been fully used.');
+    if (!empty($c['plan_id']) && (int)$c['plan_id'] !== (int)$plan['id']) return $fail('This coupon is not valid for the ' . $plan['name'] . ' plan.');
+    if ((int)$c['once_per_client'] === 1 && $tenantId > 0) {
+        $used = (int)db_val('SELECT COUNT(*) FROM ' . tbl('invoice_details') . ' d JOIN ' . tbl('invoices') . " i ON i.id = d.invoice_id
+                             WHERE d.coupon_code = :c AND i.tenant_id = :t AND i.status = 'paid'", [':c' => $code, ':t' => $tenantId]);
+        if ($used > 0) return $fail('You have already used this coupon.');
+    }
+    $d = $c['type'] === 'percent' ? $amount * (float)$c['value'] / 100 : (float)$c['value'];
+    if ($c['type'] === 'percent' && (float)$c['max_discount'] > 0) $d = min($d, (float)$c['max_discount']);
+    $d = round(min(max($d, 0), $amount), 2);
+    return ['valid' => true, 'discount' => $d, 'code' => $code, 'coupon' => $c,
+            'message' => 'Coupon applied — you save ' . getSetting('currency', '₹') . rtrim(rtrim(number_format($d, 2), '0'), '.') . '!'];
+}
+
+/**
+ * Server-side price of a plan for a tenant: GST, launch offer, then coupon.
+ * @return array{list_total:float,launch_discount:float,coupon_discount:float,discount:float,total:float,coupon:?string,label:string,message:string,coupon_ok:bool}
+ */
+function planQuote(int $tenantId, array $plan, string $coupon = ''): array {
+    $gross  = planGross($plan);
+    $after  = applyLaunchDiscount($tenantId, $gross);
+    $launch = round($gross - $after, 2);
+    $cd = 0.0; $code = null; $msg = ''; $ok = true;
+    if (trim($coupon) !== '') {
+        $ev = planCouponEvaluate($coupon, $tenantId, $plan, $after);
+        $ok = $ev['valid']; $msg = $ev['message'];
+        if ($ev['valid']) { $cd = $ev['discount']; $code = $ev['code']; }
+    }
+    $labels = [];
+    if ($launch > 0) $labels[] = 'Welcome offer';
+    if ($code)       $labels[] = 'Coupon ' . $code;
+    return [
+        'list_total' => $gross, 'launch_discount' => $launch, 'coupon_discount' => $cd,
+        'discount' => round($launch + $cd, 2), 'total' => round($after - $cd, 2),
+        'coupon' => $code, 'label' => implode(' + ', $labels), 'message' => $msg, 'coupon_ok' => $ok,
+    ];
+}
+
+/**
+ * Raise an invoice for a plan purchase and return [invoiceId, invoiceNo, total].
+ *
+ * $opts (all optional):
+ *   total          final amount incl. GST actually charged (default: planQuote without coupon)
+ *   list_total     price incl. GST before discounts (default: planGross)
+ *   discount_label e.g. "Coupon WELCOME50" / "Special discount 50%"
+ *   coupon_code    consumed (used_count+1) when the invoice is paid
+ *   payment_mode   upi|cash|bank|card|cheque|online|other
+ *   payment_ref    UTR / Razorpay payment id / receipt no.
+ *   note           free text
+ *   paid_on        Y-m-d (default today when paid)
+ *
+ * The final total is split back into taxable value + GST so the invoice stays
+ * GST-correct after a discount.
+ */
+function planInvoice(int $tenantId, array $plan, string $status, array $opts = []): array {
+    $rate  = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
+    if (isset($opts['total'])) {
+        $total = round((float)$opts['total'], 2);
+        $list  = round((float)($opts['list_total'] ?? planGross($plan)), 2);
+        $label = $opts['discount_label'] ?? '';
+    } else {
+        $q = planQuote($tenantId, $plan);
+        $total = $q['total']; $list = $q['list_total']; $label = $q['label'];
+    }
+    $amount = $rate > 0 ? round($total / (1 + $rate / 100), 2) : $total;
+    $tax    = round($total - $amount, 2);
+    $next   = (int)db_val('SELECT COALESCE(MAX(id),0) FROM ' . tbl('invoices')) + 1;
+    $invNo  = 'INV-' . date('Ym') . '-' . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
+    $paidOn = $status === 'paid' ? ($opts['paid_on'] ?? date('Y-m-d')) : null;
     $id = db_insert('invoices', [
         'tenant_id'  => $tenantId,
         'invoice_no' => $invNo,
@@ -378,9 +476,59 @@ function planInvoice(int $tenantId, array $plan, string $status): array {
         'tax'        => $tax,
         'total'      => $total,
         'status'     => $status,
-        'paid_on'    => $status === 'paid' ? date('Y-m-d') : null,
+        'paid_on'    => $paidOn,
     ]);
+    try {
+        db_insert('invoice_details', [
+            'invoice_id'     => (int)$id,
+            'list_total'     => $list,
+            'discount'       => max(0, round($list - $total, 2)),
+            'discount_label' => $label !== '' ? mb_substr($label, 0, 120) : null,
+            'coupon_code'    => !empty($opts['coupon_code']) ? strtoupper($opts['coupon_code']) : null,
+            'payment_mode'   => $opts['payment_mode'] ?? null,
+            'payment_ref'    => !empty($opts['payment_ref']) ? mb_substr((string)$opts['payment_ref'], 0, 120) : null,
+            'note'           => !empty($opts['note']) ? mb_substr((string)$opts['note'], 0, 255) : null,
+        ]);
+        if ($status === 'paid' && !empty($opts['coupon_code'])) {
+            db_query('UPDATE ' . tbl('plan_coupons') . ' SET used_count = used_count + 1 WHERE code = :c', [':c' => strtoupper($opts['coupon_code'])]);
+        }
+    } catch (Throwable $e) { error_log('planInvoice details: ' . $e->getMessage()); }
     return [$id, $invNo, $total];
+}
+
+/** Mark an unpaid plan invoice paid (and consume its coupon once). */
+function markPlanInvoicePaid(int $invoiceId, string $mode = '', string $ref = ''): void {
+    db_update('invoices', ['status' => 'paid', 'paid_on' => date('Y-m-d')], ['id' => $invoiceId]);
+    try {
+        $d = db_one('SELECT * FROM ' . tbl('invoice_details') . ' WHERE invoice_id = :i', [':i' => $invoiceId]);
+        if ($d) {
+            $upd = [];
+            if ($mode !== '' && empty($d['payment_mode'])) $upd['payment_mode'] = $mode;
+            if ($ref !== '' && empty($d['payment_ref']))   $upd['payment_ref'] = $ref;
+            if ($upd) db_update('invoice_details', $upd, ['invoice_id' => $invoiceId]);
+            if (!empty($d['coupon_code'])) {
+                db_query('UPDATE ' . tbl('plan_coupons') . ' SET used_count = used_count + 1 WHERE code = :c', [':c' => $d['coupon_code']]);
+            }
+        }
+    } catch (Throwable $e) { /* details table not migrated yet */ }
+}
+
+/** WhatsApp the client that a payment was received, with the invoice link (best effort). */
+function notifyPlanPaid(int $tenantId, int $invoiceId, array $plan, float $total): void {
+    try {
+        $t = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
+        if (!$t) return;
+        $to = preg_replace('/\D/', '', (string)(($t['whatsapp_no'] ?? '') ?: ($t['mobile'] ?? '')));
+        if ($to === '') return;
+        $msg = "✅ Payment received – thank you!\n"
+             . 'Restaurant: ' . $t['restaurant_name'] . "\n"
+             . 'Plan: ' . $plan['name'] . "\n"
+             . 'Amount: ' . getSetting('currency', '₹') . number_format($total, 2) . "\n"
+             . ($t['expiry_date'] ? 'Valid till: ' . date('d M Y', strtotime($t['expiry_date'])) . "\n" : '')
+             . 'Invoice: ' . rtrim(BASE_URL, '/') . '/invoice.php?id=' . $invoiceId . "\n"
+             . '(Login to open the invoice. It is also in Plans & Billing.)';
+        sendWhatsApp($to, $msg, null, $tenantId, 'manual');
+    } catch (Throwable $e) { error_log('notifyPlanPaid: ' . $e->getMessage()); }
 }
 
 /** Whether online (Razorpay) checkout is fully configured. */

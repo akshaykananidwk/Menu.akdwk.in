@@ -76,11 +76,19 @@ try {
         rzpHookReply(200, 'Unknown tenant or plan.');
     }
 
-    [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'paid');
+    $paid = ((int)($payment['amount'] ?? 0)) / 100;
+    [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'paid', [
+        'total'          => $paid,
+        'list_total'     => (float)($notes['list_total'] ?? planGross($plan)),
+        'discount_label' => !empty($notes['coupon']) ? 'Coupon ' . $notes['coupon'] : '',
+        'coupon_code'    => $notes['coupon'] ?? null,
+        'payment_mode'   => 'online',
+        'payment_ref'    => $payId,
+    ]);
     db_insert('plan_requests', [
         'tenant_id'    => $tenantId,
         'plan_id'      => $planId,
-        'amount'       => ((int)($payment['amount'] ?? 0)) / 100,
+        'amount'       => $paid,
         'method'       => 'online',
         'txn_ref'      => $payId,
         'status'       => 'approved',
@@ -89,6 +97,7 @@ try {
     ]);
     activatePlanForTenant($tenantId, $planId);
     logActivity('tenant', $tenantId, 'Paid online for ' . $plan['name'] . ' (' . $payId . ', webhook)');
+    notifyPlanPaid($tenantId, (int)$invId, $plan, (float)$total);
 
     rzpHookReply(200, 'Plan activated.');
 } catch (Throwable $e) {

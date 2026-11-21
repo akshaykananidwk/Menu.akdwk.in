@@ -7,7 +7,8 @@
  *   request_offline  {plan_id, txn_ref?, screenshot(file)?}
  *        Records a pending upgrade request paid by UPI/GPay, raises an unpaid
  *        invoice and pings the super admin on WhatsApp. Admin approves to activate.
- *   razorpay_order   {plan_id}
+ *   quote            {plan_id, coupon?}  → price incl. GST after offer + coupon
+ *   razorpay_order   {plan_id, coupon?}
  *        Creates a Razorpay order (needs razorpay_key_id + secret) and returns
  *        the checkout params.
  *   razorpay_verify  {plan_id, razorpay_order_id, razorpay_payment_id, razorpay_signature}
@@ -43,6 +44,18 @@ function notifyAdminPlanRequest(array $tenant, array $plan, string $method, ?str
 
 try {
     // =====================================================================
+    // QUOTE — price for a plan with an optional coupon (shown before paying).
+    // =====================================================================
+    if ($action === 'quote') {
+        $planId = (int)($_POST['plan_id'] ?? 0);
+        $plan   = $planId ? db_one('SELECT * FROM ' . tbl('plans') . ' WHERE id = :id AND status = 1', [':id' => $planId]) : null;
+        if (!$plan) { jsonError('Plan not found.'); }
+        $q = planQuote($tenantId, $plan, (string)($_POST['coupon'] ?? ''));
+        if (!$q['coupon_ok']) { jsonError($q['message'], 400, $q); }
+        jsonSuccess($q['message'], $q);
+    }
+
+    // =====================================================================
     // OFFLINE — client paid by UPI/GPay, awaits admin verification.
     // =====================================================================
     if ($action === 'request_offline') {
@@ -60,7 +73,12 @@ try {
             $shot = uploadImage($_FILES['screenshot'], 'payments');
         }
 
-        [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'unpaid');
+        $q = planQuote($tenantId, $plan, (string)($_POST['coupon'] ?? ''));
+        if (!$q['coupon_ok']) { jsonError($q['message']); }
+        [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'unpaid', [
+            'total' => $q['total'], 'list_total' => $q['list_total'], 'discount_label' => $q['label'],
+            'coupon_code' => $q['coupon'], 'payment_mode' => 'upi', 'payment_ref' => $txn,
+        ]);
 
         db_insert('plan_requests', [
             'tenant_id'  => $tenantId,
@@ -90,9 +108,9 @@ try {
 
         $keyId   = trim((string)getSetting('razorpay_key_id', ''));
         $secret  = trim((string)getSetting('razorpay_secret', ''));
-        $rate    = defined('INVOICE_TAX_RATE') ? INVOICE_TAX_RATE : 0;
-        $amount  = (float)$plan['price'];
-        $total   = applyLaunchDiscount($tenantId, $amount + round($amount * $rate / 100, 2));
+        $q       = planQuote($tenantId, $plan, (string)($_POST['coupon'] ?? ''));
+        if (!$q['coupon_ok']) { jsonError($q['message']); }
+        $total   = $q['total'];
         $paise   = (int)round($total * 100);
         if ($paise < 100) { jsonError('This plan is free — no payment needed. Contact support to activate.'); }
 
@@ -100,7 +118,8 @@ try {
             'amount'   => $paise,
             'currency' => 'INR',
             'receipt'  => 'plan_' . $tenantId . '_' . $planId,
-            'notes'    => ['tenant_id' => (string)$tenantId, 'plan_id' => (string)$planId],
+            'notes'    => ['tenant_id' => (string)$tenantId, 'plan_id' => (string)$planId,
+                           'coupon' => (string)($q['coupon'] ?? ''), 'list_total' => (string)$q['list_total']],
         ]);
 
         $ch = curl_init('https://api.razorpay.com/v1/orders');
@@ -125,6 +144,7 @@ try {
         // cannot activate a different (pricier) plan with a cheaper payment.
         $_SESSION['rzp_plan_orders'][$order['id']] = [
             'tenant_id' => $tenantId, 'plan_id' => $planId, 'paise' => $paise, 'at' => time(),
+            'coupon' => $q['coupon'], 'list_total' => $q['list_total'], 'label' => $q['label'],
         ];
 
         jsonSuccess('', [
@@ -176,7 +196,11 @@ try {
             jsonSuccess('Payment already recorded. Your plan is active.');
         }
 
-        [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'paid');
+        [$invId, $invNo, $total] = planInvoice($tenantId, $plan, 'paid', [
+            'total' => $pending['paise'] / 100, 'list_total' => $pending['list_total'] ?? planGross($plan),
+            'discount_label' => $pending['label'] ?? '', 'coupon_code' => $pending['coupon'] ?? null,
+            'payment_mode' => 'online', 'payment_ref' => $payId,
+        ]);
         db_insert('plan_requests', [
             'tenant_id'    => $tenantId,
             'plan_id'      => $planId,
@@ -190,6 +214,7 @@ try {
         activatePlanForTenant($tenantId, $planId);
         unset($_SESSION['rzp_plan_orders'][$orderId]);
         logActivity('tenant', $tenantId, 'Paid online for ' . $plan['name'] . ' (' . $payId . ')');
+        notifyPlanPaid($tenantId, (int)$invId, $plan, (float)$total);
 
         jsonSuccess('Payment successful! Your plan is now active.');
     }

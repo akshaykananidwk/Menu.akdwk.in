@@ -29,11 +29,19 @@ try {
 }
 
 // Billing history (best-effort — never break the page).
+$payModes = planPaymentModes();
 try {
-    $invoices = db_all('SELECT i.*, p.name AS plan_name FROM ' . tbl('invoices') . ' i
+    $invoices = db_all('SELECT i.*, p.name AS plan_name, d.payment_mode, d.discount FROM ' . tbl('invoices') . ' i
                         LEFT JOIN ' . tbl('plans') . ' p ON p.id = i.plan_id
+                        LEFT JOIN ' . tbl('invoice_details') . ' d ON d.invoice_id = i.id
                         WHERE i.tenant_id = :t ORDER BY i.id DESC LIMIT 24', [':t' => $tid]);
-} catch (Throwable $e) { $invoices = []; }
+} catch (Throwable $e) {
+    try {
+        $invoices = db_all('SELECT i.*, p.name AS plan_name FROM ' . tbl('invoices') . ' i
+                            LEFT JOIN ' . tbl('plans') . ' p ON p.id = i.plan_id
+                            WHERE i.tenant_id = :t ORDER BY i.id DESC LIMIT 24', [':t' => $tid]);
+    } catch (Throwable $e2) { $invoices = []; }
+}
 
 // Expiry maths for the status banner.
 $expiry   = $tenant['expiry_date'] ?: null;
@@ -241,7 +249,7 @@ if ($upi['id'] !== '') {
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
-        <tr><th>Invoice</th><th>Plan</th><th>Date</th><th>Amount</th><th>Status</th><th class="text-end">Invoice</th></tr>
+        <tr><th>Invoice</th><th>Plan</th><th>Date</th><th>Amount</th><th>Status</th><th>Paid by</th><th class="text-end">Invoice</th></tr>
       </thead>
       <tbody>
       <?php foreach ($invoices as $iv): ?>
@@ -255,6 +263,8 @@ if ($upi['id'] !== '') {
               ? '<span class="badge bg-success-subtle text-success">Paid</span>'
               : '<span class="badge bg-warning-subtle text-warning">Unpaid</span>' ?>
           </td>
+          <td class="small"><?= !empty($iv['payment_mode']) ? e($payModes[$iv['payment_mode']] ?? $iv['payment_mode']) : '—' ?>
+            <?= (float)($iv['discount'] ?? 0) > 0 ? '<div class="text-success">saved ' . $money((float)$iv['discount']) . '</div>' : '' ?></td>
           <td class="text-end">
             <a href="<?= e(BASE_URL) ?>/invoice.php?id=<?= (int)$iv['id'] ?>" target="_blank" class="btn btn-sm btn-outline-primary">
               <i class="bi bi-download"></i> Download
@@ -282,7 +292,20 @@ if ($upi['id'] !== '') {
             <div class="fw-semibold" id="pmPlan2"></div>
             <div class="text-muted small" id="pmDays"></div>
           </div>
-          <div class="fs-4 fw-bold text-primary" id="pmAmount"></div>
+          <div class="text-end">
+            <div class="small text-muted text-decoration-line-through" id="pmOld" style="display:none"></div>
+            <div class="fs-4 fw-bold text-primary" id="pmAmount"></div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="bi bi-ticket-perforated"></i></span>
+            <input id="cpnInput" class="form-control text-uppercase" placeholder="Have a coupon code?" maxlength="40">
+            <button class="btn btn-outline-primary" type="button" id="cpnApply">Apply</button>
+            <button class="btn btn-outline-secondary" type="button" id="cpnRemove" style="display:none">Remove</button>
+          </div>
+          <div class="small mt-1" id="cpnMsg"></div>
         </div>
 
         <?php if (!$online): ?>
@@ -323,6 +346,7 @@ if ($upi['id'] !== '') {
 
             <form id="offForm" enctype="multipart/form-data">
               <input type="hidden" name="plan_id" id="offPlanId">
+              <input type="hidden" name="coupon" id="offCoupon">
               <div class="mb-2">
                 <label class="form-label small">Transaction / UTR ref (optional)</label>
                 <input name="txn_ref" class="form-control form-control-sm" placeholder="e.g. 4213xxxxxx">
@@ -375,7 +399,8 @@ function money(n){ return '{$curr}' + (Number(n)%1===0 ? Number(n).toFixed(0) : 
 
 document.querySelectorAll('.buyBtn').forEach(function(b){
   b.addEventListener('click', function(){
-    cur = { id:b.dataset.id, name:b.dataset.name, price:parseFloat(b.dataset.price), days:b.dataset.days };
+    cur = { id:b.dataset.id, name:b.dataset.name, price:parseFloat(b.dataset.price), days:b.dataset.days, coupon:'' };
+    resetCoupon();
     document.getElementById('pmPlan').textContent = cur.name;
     document.getElementById('pmPlan2').textContent = cur.name + ' plan';
     document.getElementById('pmDays').textContent = cur.days + ' days validity';
@@ -398,6 +423,43 @@ document.querySelectorAll('.buyBtn').forEach(function(b){
   });
 });
 
+// ---- Coupon ----
+function setAmount(total, oldTotal){
+  document.getElementById('pmAmount').textContent = money(total);
+  const o = document.getElementById('pmOld');
+  if (oldTotal && oldTotal > total) { o.textContent = money(oldTotal); o.style.display = ''; } else { o.style.display = 'none'; }
+  document.querySelectorAll('.offAmt,.rzpAmt').forEach(function(el){ el.textContent = money(total); });
+}
+function resetCoupon(){
+  cur.coupon = '';
+  document.getElementById('cpnInput').value = ''; document.getElementById('cpnInput').disabled = false;
+  document.getElementById('cpnMsg').textContent = ''; document.getElementById('cpnMsg').className = 'small mt-1';
+  document.getElementById('cpnApply').style.display = ''; document.getElementById('cpnRemove').style.display = 'none';
+  const oc = document.getElementById('offCoupon'); if (oc) oc.value = '';
+  if (cur.price !== undefined) setAmount(cur.price);
+  const qw = document.querySelector('.qrWrap'); if (qw && QR[cur.id]) qw.style.display = '';
+}
+document.getElementById('cpnApply').addEventListener('click', function(){
+  const code = document.getElementById('cpnInput').value.trim();
+  const msg = document.getElementById('cpnMsg');
+  if (!code) { msg.className = 'small mt-1 text-danger'; msg.textContent = 'Enter a coupon code.'; return; }
+  this.disabled = true; const btn = this;
+  AK.post(B + '/api/plan.php?action=quote', { plan_id: cur.id, coupon: code }).then(function(res){
+    btn.disabled = false;
+    if (!res || res.status !== 'success') { msg.className = 'small mt-1 text-danger'; msg.textContent = (res && res.message) || 'Invalid coupon.'; return; }
+    const d = res.data;
+    cur.coupon = d.coupon;
+    msg.className = 'small mt-1 text-success fw-semibold'; msg.textContent = res.message;
+    document.getElementById('cpnInput').disabled = true;
+    btn.style.display = 'none'; document.getElementById('cpnRemove').style.display = '';
+    const oc = document.getElementById('offCoupon'); if (oc) oc.value = d.coupon;
+    // A fixed-amount UPI QR would be wrong after a discount — hide it.
+    const qw = document.querySelector('.qrWrap'); if (qw) qw.style.display = 'none';
+    setAmount(d.total, cur.price);
+  }).catch(function(){ btn.disabled = false; });
+});
+document.getElementById('cpnRemove').addEventListener('click', resetCoupon);
+
 // ---- Offline "I've Paid" ----
 const offForm = document.getElementById('offForm');
 if (offForm) offForm.addEventListener('submit', function(e){
@@ -415,7 +477,7 @@ const rzpBtn = document.getElementById('rzpBtn');
 if (rzpBtn) {
   rzpBtn.addEventListener('click', function(){
     rzpBtn.disabled = true;
-    AK.post(B + '/api/plan.php?action=razorpay_order', { plan_id: cur.id }).then(function(res){
+    AK.post(B + '/api/plan.php?action=razorpay_order', { plan_id: cur.id, coupon: cur.coupon || '' }).then(function(res){
       if (!res || res.status !== 'success') { AK.toast('error', (res && res.message) || 'Could not start payment'); rzpBtn.disabled = false; return; }
       const d = res.data;
       const rzp = new Razorpay({

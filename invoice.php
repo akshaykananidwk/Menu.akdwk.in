@@ -33,6 +33,11 @@ $secondary= getSetting('secondary_color', '#1d3557');
 $curr     = getSetting('currency', '₹');
 $money    = fn($n) => $curr . number_format((float)$n, 2);
 
+try { $det = db_one('SELECT * FROM ' . tbl('invoice_details') . ' WHERE invoice_id = :i', [':i' => $id]) ?: []; }
+catch (Throwable $e) { $det = []; }
+$modes    = function_exists('planPaymentModes') ? planPaymentModes() : [];
+$disc     = (float)($det['discount'] ?? 0);
+$listTot  = (float)($det['list_total'] ?? 0);
 $paid     = $inv['status'] === 'paid';
 $taxRate  = (float)$inv['amount'] > 0 ? round((float)$inv['tax'] / (float)$inv['amount'] * 100) : 0;
 $dateOut  = fn($d) => $d ? date('d M Y', strtotime($d)) : '—';
@@ -159,14 +164,18 @@ table.items .desc small{color:#94a3b8}
           <b><?= e($plan['name'] ?? 'Subscription') ?> Plan</b><br>
           <small><?= $siteName ?> subscription<?= $plan ? ' · ' . (int)$plan['validity_days'] . ' days validity' : '' ?></small>
         </td>
-        <td class="r"><?= e($money($inv['amount'])) ?></td>
+        <td class="r"><?= e($money($disc > 0 && $listTot > 0 ? $listTot : $inv['total'])) ?></td>
       </tr>
     </tbody>
   </table>
 
   <div class="totals">
     <table>
-      <tr><td>Subtotal</td><td class="r"><?= e($money($inv['amount'])) ?></td></tr>
+      <?php if ($disc > 0 && $listTot > 0): ?>
+      <tr><td>Plan price (incl. GST)</td><td class="r"><?= e($money($listTot)) ?></td></tr>
+      <tr><td style="color:#059669">Discount<?= !empty($det['discount_label']) ? ' · ' . e($det['discount_label']) : '' ?></td><td class="r" style="color:#059669">−<?= e($money($disc)) ?></td></tr>
+      <?php endif; ?>
+      <tr><td>Taxable value</td><td class="r"><?= e($money($inv['amount'])) ?></td></tr>
       <?php if ((float)$inv['tax'] > 0): ?>
       <tr><td>GST (<?= (int)$taxRate ?>%)</td><td class="r"><?= e($money($inv['tax'])) ?></td></tr>
       <?php endif; ?>
@@ -181,6 +190,10 @@ table.items .desc small{color:#94a3b8}
         : '<span style="color:#d97706;font-weight:700">Awaiting payment</span>' ?>
     </div>
     <div><strong>Amount <?= $paid ? 'Paid' : 'Due' ?>:</strong> <?= e($money($inv['total'])) ?></div>
+    <?php if (!empty($det['payment_mode']) && $paid): ?>
+      <div><strong>Paid by:</strong> <?= e($modes[$det['payment_mode']] ?? ucfirst($det['payment_mode'])) ?><?= !empty($det['payment_ref']) ? ' · Ref ' . e($det['payment_ref']) : '' ?></div>
+    <?php endif; ?>
+    <?php if (!empty($det['note'])): ?><div style="flex-basis:100%"><strong>Note:</strong> <?= e($det['note']) ?></div><?php endif; ?>
   </div>
 
   <div class="foot">
