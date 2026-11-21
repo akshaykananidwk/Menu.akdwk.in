@@ -39,6 +39,14 @@ body{margin:0}
 <div class="kot-top">
   <div><i class="bi bi-fire text-danger"></i> <strong><?= e($tenant['restaurant_name'] ?? 'Kitchen') ?></strong> — KOT Display</div>
   <div class="d-flex align-items-center gap-3">
+    <div class="form-check form-switch text-white mb-0" title="Print a KOT automatically for every new order">
+      <input class="form-check-input" type="checkbox" id="autoPrint">
+      <label class="form-check-label small" for="autoPrint"><i class="bi bi-printer"></i> Auto-print KOT</label>
+    </div>
+    <select id="kotWidth" class="form-select form-select-sm bg-dark text-white border-secondary" style="width:auto" title="Printer paper width">
+      <option value="80">80mm</option><option value="58">58mm</option>
+    </select>
+    <button class="btn btn-sm btn-outline-light" id="kotTest" type="button" title="Print a test KOT"><i class="bi bi-printer"></i> Test</button>
     <div class="form-check form-switch text-white mb-0">
       <input class="form-check-input" type="checkbox" id="soundToggle" checked>
       <label class="form-check-label small" for="soundToggle">Sound</label>
@@ -52,11 +60,15 @@ body{margin:0}
 <div id="empty" class="text-center text-secondary py-5" style="display:none"><i class="bi bi-check2-circle" style="font-size:3rem"></i><p>No active tickets. All caught up!</p></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= e(assetUrl('assets/js/kot-print.js')) ?>"></script>
 <?php $base = BASE_URL; $csrf = csrfToken(); ?>
 <script>
 const B='<?= e($base) ?>', CSRF='<?= e($csrf) ?>';
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let lastMaxId=0, firstLoad=true;
+let lastMaxId=0, firstLoad=true, kotOrders={};
+AKKot.init({tenant: <?= (int)$tid ?>, name: <?= json_encode((string)($tenant['restaurant_name'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+  autoEl: document.getElementById('autoPrint'), widthEl: document.getElementById('kotWidth'), testEl: document.getElementById('kotTest')});
+window.reprint=function(id){ if(kotOrders[id]) AKKot.print(kotOrders[id]); };
 
 // ---- Sound + Hindi voice alert ----
 let audioCtx=null;
@@ -94,18 +106,19 @@ function cardHtml(o){
   const late = mins(o.created_at) > 15;
   const items=(o.items||[]).map(i=>{
     let ad=''; try{(JSON.parse(i.addons_json)||[]).forEach(a=>ad+=' +'+esc(a.name));}catch(e){}
-    return `<div class="kot-item">\${i.qty}× \${esc(i.item_name)}\${i.variant_label?' ('+esc(i.variant_label)+')':''}\${ad}`+
-      `\${i.notes?'<div class="kot-note">↳ '+esc(i.notes)+'</div>':''}</div>`;
+    return `<div class="kot-item">${i.qty}× ${esc(i.item_name)}${i.variant_label?' ('+esc(i.variant_label)+')':''}${ad}`+
+      `${i.notes?'<div class="kot-note">↳ '+esc(i.notes)+'</div>':''}</div>`;
   }).join('');
   const nxt=NEXT[o.status];
-  return `<div class="kot-card \${late?'late':''}">
+  return `<div class="kot-card ${late?'late':''}">
     <div class="d-flex justify-content-between align-items-start mb-2">
-      <div><h5>\${o.table_no?('Table '+esc(o.table_no)):esc(o.order_type)}</h5>
-        <small class="text-secondary">#\${esc(o.order_no)} · \${esc(o.status)}</small></div>
-      <div class="kot-time \${late?'text-danger fw-bold':'text-secondary'}"><i class="bi bi-clock"></i> \${fmt(o.created_at)}</div>
+      <div><h5>${o.table_no?('Table '+esc(o.table_no)):esc(o.order_type)}</h5>
+        <small class="text-secondary">#${esc(o.order_no)} · ${esc(o.status)}</small></div>
+      <div class="kot-time ${late?'text-danger fw-bold':'text-secondary'}"><i class="bi bi-clock"></i> ${fmt(o.created_at)}</div>
     </div>
-    \${items}
-    <div class="mt-2 d-grid">\${nxt?`<button class="btn btn-primary kot-btn" onclick="adv(\${o.id},'\${nxt}')">\${NEXTLABEL[o.status]}</button>`:''}</div>
+    ${items}
+    <div class="mt-2 d-flex gap-2"><button class="btn btn-outline-light kot-btn" title="Print KOT" onclick="reprint(${o.id})"><i class="bi bi-printer"></i></button>
+      <div class="d-grid flex-grow-1">${nxt?`<button class="btn btn-primary kot-btn" onclick="adv(${o.id},'${nxt}')">${NEXTLABEL[o.status]}</button>`:''}</div></div>
   </div>`;
 }
 
@@ -118,6 +131,8 @@ function poll(){
       if(!firstLoad && maxId>lastMaxId && document.getElementById('soundToggle').checked){
         orderAlert();
       }
+      kotOrders={}; orders.forEach(o=>kotOrders[o.id]=o);
+      AKKot.handle(orders, firstLoad);
       lastMaxId=Math.max(lastMaxId,maxId); firstLoad=false;
       document.getElementById('grid').innerHTML=orders.map(cardHtml).join('');
       document.getElementById('empty').style.display=orders.length?'none':'block';
@@ -145,8 +160,8 @@ function pollSvc(){
       }
       lastSvcId=Math.max(lastSvcId,maxId); svcFirst=false;
       document.getElementById('svcBar').innerHTML=reqs.map(r=>
-        `<div class="svc-pill \${r.type==='bill'?'bill':''}"><span>\${r.table_no?('T'+esc(r.table_no)+' · '):''}\${SVCLABEL[r.type]||esc(r.type)}</span>`+
-        `<button onclick="svcDone(\${r.id})">Done</button></div>`).join('');
+        `<div class="svc-pill ${r.type==='bill'?'bill':''}"><span>${r.table_no?('T'+esc(r.table_no)+' · '):''}${SVCLABEL[r.type]||esc(r.type)}</span>`+
+        `<button onclick="svcDone(${r.id})">Done</button></div>`).join('');
     }).catch(()=>{});
 }
 window.svcDone=function(id){

@@ -25,6 +25,14 @@ $currency = $tenant['currency'] ?: '₹';
     <span class="text-muted small">Auto-refreshing every 5s</span>
   </div>
   <div class="d-flex align-items-center gap-2">
+    <div class="form-check form-switch mb-0" title="Print a KOT automatically for every new order">
+      <input class="form-check-input" type="checkbox" id="autoPrint">
+      <label class="form-check-label small" for="autoPrint"><i class="bi bi-printer"></i> Auto-print KOT</label>
+    </div>
+    <select id="kotWidth" class="form-select form-select-sm" style="width:auto" title="Printer paper width">
+      <option value="80">80mm</option><option value="58">58mm</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" id="kotTest" type="button" title="Print a test KOT"><i class="bi bi-printer"></i> Test</button>
     <div class="form-check form-switch mb-0">
       <input class="form-check-input" type="checkbox" id="soundToggle" checked>
       <label class="form-check-label small" for="soundToggle"><i class="bi bi-volume-up"></i> Sound</label>
@@ -146,11 +154,16 @@ $cfg = json_encode([
   'name'     => $tenant['restaurant_name'],
   'address'  => $tenant['address'],
   'mobile'   => $tenant['mobile'],
-], JSON_UNESCAPED_UNICODE);
+  'tid'      => (int)$tenant['id'],
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
+$kotJs = e(assetUrl('assets/js/kot-print.js'));
 ?>
 <?php $pageScript = <<<HTML
+<script src="{$kotJs}"></script>
 <script>
 const CFG = {$cfg};
+AKKot.init({tenant: CFG.tid, name: CFG.name, autoEl: document.getElementById('autoPrint'),
+  widthEl: document.getElementById('kotWidth'), testEl: document.getElementById('kotTest')});
 const money = n => CFG.currency + Number(n||0).toFixed(2);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let lastMaxId = 0, firstLoad = true, allOrders = [], dt = null;
@@ -225,6 +238,7 @@ function poll(){
     const maxId = orders.reduce((m,o)=>Math.max(m,+o.id),0);
     // New order arrived since last poll -> alert.
     if(!firstLoad && maxId>lastMaxId){ notifyNew(orders.find(o=>+o.id===maxId)); }
+    AKKot.handle(orders, firstLoad);
     lastMaxId = Math.max(lastMaxId, maxId);
     firstLoad = false;
     render(orders);
@@ -402,17 +416,7 @@ function printWindow(html){
 }
 function printKOT(id){
   const o = allOrders.find(x=>+x.id===+id); if(!o) return;
-  let rows = (o.items||[]).map(i=>{
-    let ad=''; try{(JSON.parse(i.addons_json)||[]).forEach(a=>ad+=' +'+esc(a.name));}catch(e){}
-    return `<tr><td>\${i.qty} × \${esc(i.item_name)}\${i.variant_label?' ('+esc(i.variant_label)+')':''}\${ad}`+
-      `\${i.notes?'<br><b>* '+esc(i.notes)+'</b>':''}</td></tr>`;
-  }).join('');
-  printKOT._ = 1;
-  printWindow(`<h3>*** KOT ***</h3><h4>\${esc(CFG.name)}</h4>
-    <div class="c">#\${esc(o.order_no)} · \${new Date().toLocaleString()}</div>
-    <div class="c">\${o.table_no?('Table '+esc(o.table_no)):esc(o.order_type)}</div>
-    <div class="line"></div><table>\${rows}</table><div class="line"></div>
-    <div class="c">\${esc(o.order_type)}</div>`);
+  AKKot.print(o); // same thermal layout + silent print as the auto-print
 }
 function printBill(id){
   const o = allOrders.find(x=>+x.id===+id); if(!o) return;

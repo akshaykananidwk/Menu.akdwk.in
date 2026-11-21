@@ -217,6 +217,8 @@ $guide = [
      'પછી પૈસા લીધા? કોઈપણ બાકી ઓર્ડર પર <b>Mark Paid</b> વાપરો. પ્રિન્ટેડ બિલમાં પેમેન્ટ મોડ દેખાશે.'),
    hlp('Print the bill from the order detail. It works with any normal or thermal printer connected to that device.',
      'ઓર્ડરની વિગતમાંથી બિલ પ્રિન્ટ કરો. એ ડિવાઇસ સાથે જોડાયેલા સામાન્ય કે થર્મલ પ્રિન્ટર સાથે ચાલે છે.'),
+   hlp('<b>Auto-print KOT</b> (no button press): on the counter PC, add the printer in Windows (USB, or a network/IP printer via <i>Settings → Printers → Add device → Add manually → TCP/IP address</i>) and set it as <b>Default</b>. Make a Chrome shortcut whose Target ends with <code>--kiosk-printing</code>, open Orders (or the Kitchen screen) from it, and turn on <b>Auto-print KOT</b>. Press <b>Test</b> once. Now every order — even one a waiter takes on a phone — prints a KOT by itself within a few seconds. Keep that screen open.',
+     '<b>Auto-print KOT</b> (બટન દબાવ્યા વગર): કાઉન્ટરના PC માં Windows માં પ્રિન્ટર ઉમેરો (USB, અથવા IP વાળું પ્રિન્ટર <i>Settings → Printers → Add device → Add manually → TCP/IP address</i> થી) અને તેને <b>Default</b> કરો. Chrome નો શૉર્ટકટ બનાવો જેના Target ના છેડે <code>--kiosk-printing</code> હોય, તેમાંથી Orders (કે Kitchen screen) ખોલો અને <b>Auto-print KOT</b> ચાલુ કરો. એક વાર <b>Test</b> દબાવો. હવે દરેક ઓર્ડર — વેઇટર મોબાઈલથી લે તો પણ — થોડી સેકન્ડમાં જાતે KOT પ્રિન્ટ કરશે. એ સ્ક્રીન ખુલ્લી રાખો.'),
  ],
  'tips' => [
    hlp('<b>Due</b> is for regulars with a khata. Reports then show exactly how much is outstanding.',
