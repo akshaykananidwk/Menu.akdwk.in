@@ -1,8 +1,13 @@
 {
-    "version": "1.12.0",
+    "version": "1.13.0",
     "released_on": "2026-11-21",
     "min_php": "8.0",
     "changelog": [
+        "All WhatsApp templates rewritten in clear, professional English and Gujarati: welcome, QR, standee, menu updated, new order, order ready, thank-you + bill, plan expiring / expired (with a one-tap renew link), payment received (with invoice), OTP, support reply and daily summary",
+        "Branded footer on messages to a restaurant's customers: 'Digital menu & QR ordering by …' plus a 'make one for your restaurant' sign-up link that carries that restaurant's referral code, so every sign-up is credited in Refer & Earn. Skipped for plans with Remove branding. Owner messages get a Team / support footer. Both editable (EN + GU) or switchable off in Admin → WhatsApp → Settings",
+        "Customer bill link on WhatsApp now opens a real mobile bill page (/r/bill.php) instead of showing '{invoice_url}'; unfilled placeholders are never sent",
+        "Reservation confirm / cancel and 'send menu link' messages rewritten and branded; payment-received and plan-approved messages now use the editable payment_received template",
+        "Auto-print KOT, installable desktop app for the restaurant panel, admin Record Payment with discounts and Plan Coupons (see 1.12.0)",
         "Admin → Invoices → Record Payment: record a subscription payment received by cash, GPay/UPI, bank transfer, card or cheque — with a % or ₹ discount or a coupon — and the client instantly gets a PAID invoice in Plans & Billing (plus a WhatsApp with the invoice link). Choose 'activate/extend the plan now' or 'plan already active, only create the bill'",
         "Admin → Plan Coupons: create subscription coupon codes (% off with optional cap, or fixed ₹ off), limited to one plan or any plan, with total-use limit, once-per-restaurant and expiry. Clients apply them on Plans & Billing before paying; the price is re-checked on the server",
         "Invoices now show the plan price, the discount (offer / coupon / special discount), taxable value + GST, how it was paid and the transaction reference",

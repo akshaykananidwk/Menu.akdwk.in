@@ -513,21 +513,18 @@ function markPlanInvoicePaid(int $invoiceId, string $mode = '', string $ref = ''
     } catch (Throwable $e) { /* details table not migrated yet */ }
 }
 
-/** WhatsApp the client that a payment was received, with the invoice link (best effort). */
+/** WhatsApp the client that a payment was received, with the invoice link (template: payment_received). */
 function notifyPlanPaid(int $tenantId, int $invoiceId, array $plan, float $total): void {
     try {
         $t = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
         if (!$t) return;
         $to = preg_replace('/\D/', '', (string)(($t['whatsapp_no'] ?? '') ?: ($t['mobile'] ?? '')));
         if ($to === '') return;
-        $msg = "✅ Payment received – thank you!\n"
-             . 'Restaurant: ' . $t['restaurant_name'] . "\n"
-             . 'Plan: ' . $plan['name'] . "\n"
-             . 'Amount: ' . getSetting('currency', '₹') . number_format($total, 2) . "\n"
-             . ($t['expiry_date'] ? 'Valid till: ' . date('d M Y', strtotime($t['expiry_date'])) . "\n" : '')
-             . 'Invoice: ' . rtrim(BASE_URL, '/') . '/invoice.php?id=' . $invoiceId . "\n"
-             . '(Login to open the invoice. It is also in Plans & Billing.)';
-        sendWhatsApp($to, $msg, null, $tenantId, 'manual');
+        sendWaTemplate('payment_received', $to, [
+            'plan_name'   => $plan['name'],
+            'total'       => getSetting('currency', '₹') . number_format($total, 2),
+            'invoice_url' => rtrim(BASE_URL, '/') . '/invoice.php?id=' . $invoiceId,
+        ], null, $tenantId);
     } catch (Throwable $e) { error_log('notifyPlanPaid: ' . $e->getMessage()); }
 }
 
@@ -1205,12 +1202,15 @@ function sendWaTemplate(string $triggerKey, string $number, array $vars = [], ?s
     if (!$tpl) return null;
     $lang = ($tenantId && ($t = db_one('SELECT language FROM ' . tbl('tenants') . ' WHERE id=:i', [':i'=>$tenantId]))) ? $t['language'] : getSetting('default_language', 'en');
     $body = $lang === 'gu' && !empty($tpl['message_gu']) ? $tpl['message_gu'] : $tpl['message_en'];
-    $body = renderPlaceholders($body, $vars + waDefaultVars($tenantId));
-    // Never send a raw "{placeholder}" to a customer: drop any token nobody filled,
-    // and tidy the empty "Label: " / blank lines it leaves behind.
-    $body = preg_replace('/\{[a-z_]+\}/i', '', $body);
-    $body = preg_replace('/[ \t]+\n/', "\n", $body);
-    $body = preg_replace("/\n{3,}/", "\n\n", trim($body));
+    // Footer: branding + "make your own" referral link for customers, team/support for owners.
+    $aud = in_array($triggerKey, waCustomerTriggers(), true) ? 'customer'
+         : (in_array($triggerKey, waOwnerTriggers(), true) ? 'owner' : '');
+    if ($aud !== '') {
+        $f = waFooter($aud, $tenantId, $lang);
+        if ($f !== '') { $body = rtrim(str_replace('\n', "\n", $body)) . "\n\n" . $f; }
+    }
+    // Never send a raw "{placeholder}": unfilled tokens are dropped and blank lines tidied.
+    $body = waFinalizeBody($body, $vars, $tenantId);
     return sendWhatsApp($number, $body, $mediaUrl, $tenantId, $triggerKey, $immediate);
 }
 
@@ -1227,7 +1227,14 @@ function renderPlaceholders(string $tpl, array $vars): string {
  * expiry_date, login_url. Caller-supplied values always win.
  */
 function waDefaultVars(?int $tenantId): array {
-    $v = ['login_url' => BASE_URL . '/client/login.php', 'site_name' => getSetting('site_name', 'AK Menu System')];
+    $v = [
+        'login_url'      => BASE_URL . '/client/login.php',
+        'renew_url'      => BASE_URL . '/client/plans.php',
+        'site_name'      => getSetting('site_name', 'AK Menu System'),
+        'support_number' => (string)getWaSetting('support_number', getSetting('support_whatsapp', '')),
+        'signup_url'     => BASE_URL . '/signup.php',
+    ];
+    $v['referral_link'] = $v['signup_url'];
     if (!$tenantId) return $v;
     try {
         $t = db_one('SELECT * FROM ' . tbl('tenants') . ' WHERE id = :i', [':i' => $tenantId]);
@@ -1242,8 +1249,58 @@ function waDefaultVars(?int $tenantId): array {
             'plan_name'       => $plan['name'] ?? '-',
             'expiry_date'     => $t['expiry_date'] ? date('d-m-Y', strtotime($t['expiry_date'])) : '-',
         ];
+        // Signup link carrying THIS restaurant's referral code, so a new sign-up
+        // from a customer message is credited to the restaurant that sent it.
+        $v['referral_link'] = referralLink($tenantId);
     } catch (Throwable $e) { /* best effort */ }
     return $v;
+}
+
+/** Templates sent to a restaurant's CUSTOMERS (get the "Powered by / make your own" footer). */
+function waCustomerTriggers(): array { return ['order_ready', 'order_completed', 'reservation_customer', 'menu_link']; }
+/** Templates sent to restaurant OWNERS that get the team / support footer. */
+function waOwnerTriggers(): array { return ['signup_welcome', 'menu_published', 'plan_expiring', 'plan_expired', 'payment_received', 'ticket_reply']; }
+
+/** Default footer texts (editable in Admin → WhatsApp → Settings). */
+function waFooterDefaults(): array {
+    return [
+        'footer_customer_en' => "━━━━━━━━━━━━\n✨ Digital menu & QR ordering by *{site_name}*\nWant one for your restaurant / café? Start free 👉 {referral_link}",
+        'footer_customer_gu' => "━━━━━━━━━━━━\n✨ ડિજિટલ મેનુ અને QR ઓર્ડરિંગ: *{site_name}*\nતમારી હોટલ / કાફે માટે પણ બનાવો — ફ્રી શરૂ કરો 👉 {referral_link}",
+        'footer_owner_en'    => "━━━━━━━━━━━━\n🙏 Team *{site_name}*\nHelp on WhatsApp: {support_number}",
+        'footer_owner_gu'    => "━━━━━━━━━━━━\n🙏 ટીમ *{site_name}*\nમદદ માટે WhatsApp: {support_number}",
+    ];
+}
+
+/**
+ * Footer appended to a WhatsApp message.
+ * $audience: 'customer' (diners: branding + referral sign-up link) or 'owner'.
+ * Customer branding is skipped for plans with the 'remove_branding' feature.
+ */
+function waFooter(string $audience, ?int $tenantId, string $lang = 'en'): string {
+    try {
+        if (getWaSetting('footer_enabled', '1') !== '1') return '';
+        if ($audience === 'customer' && $tenantId && planHasFeature($tenantId, 'remove_branding')) return '';
+        $key = 'footer_' . ($audience === 'customer' ? 'customer' : 'owner') . '_' . ($lang === 'gu' ? 'gu' : 'en');
+        $txt = trim((string)getWaSetting($key, ''));
+        if ($txt === '') $txt = waFooterDefaults()[$key];
+        return $txt;
+    } catch (Throwable $e) { return ''; }
+}
+
+/** Fill + clean a message body: vars, standard vars, drop unfilled {tokens}, tidy blank lines. */
+function waFinalizeBody(string $body, array $vars, ?int $tenantId): string {
+    $body = renderPlaceholders($body, $vars + waDefaultVars($tenantId));
+    $body = preg_replace('/\{[a-z_]+\}/i', '', $body);
+    $body = preg_replace('/[ \t]+\n/', "\n", $body);
+    return preg_replace("/\n{3,}/", "\n\n", trim($body));
+}
+
+/** Plain (non-template) message + footer, for messages built in code. */
+function waWithFooter(string $body, string $audience, ?int $tenantId): string {
+    $lang = 'en';
+    try { if ($tenantId) { $lang = (string)db_val('SELECT language FROM ' . tbl('tenants') . ' WHERE id = :i', [':i' => $tenantId]) ?: 'en'; } } catch (Throwable $e) {}
+    $f = waFooter($audience, $tenantId, $lang);
+    return waFinalizeBody($f !== '' ? rtrim($body) . "\n\n" . $f : $body, [], $tenantId);
 }
 
 /** Secret used to sign public bill links (generated once, stored in settings). */

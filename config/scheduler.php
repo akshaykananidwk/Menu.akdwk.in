@@ -334,6 +334,7 @@ function cron_job_daily_summary(): array {
         $currency = $t['currency'] ?: getSetting('currency', '₹');
         sendWaTemplate('daily_summary', $mobile, [
             'order_no' => $count,
+            'orders'   => $count,
             'total'    => $currency . number_format($revenue, 2),
             'items'    => $top['item_name'] ?? '—',
             'date'     => $today,

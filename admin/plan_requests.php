@@ -35,11 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             db_update('plan_requests', ['status' => 'approved', 'processed_at' => date('Y-m-d H:i:s')], ['id' => $id]);
             logActivity('super_admin', $_SESSION['admin_id'] ?? null, "Approved {$plan['name']} for {$tenant['restaurant_name']}");
 
-            $to = preg_replace('/\D/', '', (string)($tenant['whatsapp_no'] ?: $tenant['mobile']));
-            if ($to) {
-                $exp = db_val('SELECT expiry_date FROM ' . tbl('tenants') . ' WHERE id = :id', [':id' => $tenantId]);
-                sendWhatsApp($to, "Your {$plan['name']} plan is now active" . ($exp ? " till $exp" : '') . '. Thank you!'
-                    . ($inv ? "\nInvoice: " . rtrim(BASE_URL, '/') . '/invoice.php?id=' . (int)$inv['id'] : ''), null, $tenantId, 'manual');
+            if ($inv) {
+                notifyPlanPaid($tenantId, (int)$inv['id'], $plan, (float)$req['amount']);
             }
         } elseif ($action === 'reject') {
             db_update('plan_requests', ['status' => 'rejected', 'processed_at' => date('Y-m-d H:i:s')], ['id' => $id]);

@@ -86,7 +86,7 @@ try {
     if ($cmd === 'MENU') {
         if ($order) {
             $url = publicMenuUrl($order['slug']);
-            sendWhatsApp($formatted, "Here is the menu for " . $order['restaurant_name'] . " 📖\n" . $url, null, $tenantId, 'inbound_reply', true);
+            sendWhatsApp($formatted, waWithFooter("📖 *" . $order['restaurant_name'] . " — menu*\n" . $url, 'customer', $tenantId ?: null), null, $tenantId, 'inbound_reply', true);
         } else {
             sendWhatsApp($formatted, "We couldn't find a recent order for your number. Please scan the restaurant's QR code to view its menu.", null, null, 'inbound_reply', true);
         }

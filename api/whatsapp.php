@@ -169,7 +169,7 @@ try {
             if (!formatWaNumber($number)) { jsonError('Please enter a valid mobile number.'); }
 
             $url = publicMenuUrl($tenant['slug']);
-            $msg = "Here is our digital menu 📖\n" . $tenant['restaurant_name'] . "\n" . $url;
+            $msg = waWithFooter("📖 *" . $tenant['restaurant_name'] . " — our menu*\n\nSee today's dishes & prices and order right from your phone:\n" . $url, 'customer', $tid);
             // Queue (cron worker sends). Non-blocking by design.
             $logId = sendWhatsApp($number, $msg, null, $tid, 'menu_link');
             jsonSuccess('Menu link queued to send.', ['log_id' => $logId]);

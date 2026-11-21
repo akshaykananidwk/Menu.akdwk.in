@@ -112,9 +112,11 @@ try {
                 $tenant = currentTenant();
                 $when = date('d M Y', strtotime($resv['reserve_date'])) . ' at ' . date('g:i A', strtotime($resv['reserve_time']));
                 $msg = $status === 'confirmed'
-                    ? ("Your table at " . $tenant['restaurant_name'] . " is CONFIRMED for $when for {$resv['party_size']} guest(s). See you soon!")
-                    : ("Sorry, your table request at " . $tenant['restaurant_name'] . " for $when could not be confirmed. Please call us.");
-                sendWhatsApp($resv['customer_mobile'], $msg, null, $tid, 'reservation');
+                    ? ("✅ *Table confirmed!*\n\n🏪 *" . $tenant['restaurant_name'] . "*\n📅 $when\n👥 {$resv['party_size']} guest(s)\n\nWe look forward to welcoming you! 🙏"
+                       . (!empty($tenant['mobile']) ? "\nNeed to change it? Call " . $tenant['mobile'] : ''))
+                    : ("😔 *Sorry, we couldn't confirm your table*\n\n🏪 *" . $tenant['restaurant_name'] . "*\n📅 $when\n\nPlease call us"
+                       . (!empty($tenant['mobile']) ? ' on ' . $tenant['mobile'] : '') . " and we'll find another time for you.");
+                sendWhatsApp($resv['customer_mobile'], waWithFooter($msg, 'customer', $tid), null, $tid, 'reservation');
             } catch (Throwable $e) { error_log('reservation status WA: ' . $e->getMessage()); }
         }
         jsonSuccess('Reservation updated.');

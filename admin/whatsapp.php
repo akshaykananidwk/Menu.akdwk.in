@@ -19,6 +19,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form'] ?? '') === 'setting
     // 'enabled' is a checkbox — store 1/0 explicitly.
     setWaSetting('enabled', !empty($_POST['enabled']) ? '1' : '0');
 
+    setWaSetting('footer_enabled', !empty($_POST['footer_enabled']) ? '1' : '0');
+    foreach (array_keys(waFooterDefaults()) as $k) {
+        if (array_key_exists($k, $_POST)) {
+            $val = trim(str_replace("\r\n", "\n", (string)$_POST[$k]));
+            // Saving the untouched default keeps following future default updates.
+            setWaSetting($k, $val === str_replace('\n', "\n", waFooterDefaults()[$k]) ? '' : $val);
+        }
+    }
+
     foreach (['base_url', 'api_key', 'session_id', 'webhook_url', 'send_delay', 'daily_limit'] as $k) {
         if (array_key_exists($k, $_POST)) {
             setWaSetting($k, trim((string)$_POST[$k]));
@@ -69,7 +78,8 @@ $usage = db_all(
 
 // Available placeholders shown in the template editor helper.
 $placeholders = ['{owner_name}','{restaurant_name}','{menu_url}','{mobile}','{password}','{plan_name}',
-                 '{expiry_date}','{order_no}','{table_no}','{total}','{items}','{qr_url}','{invoice_url}','{otp}'];
+                 '{expiry_date}','{order_no}','{table_no}','{total}','{items}','{qr_url}','{invoice_url}','{otp}',
+                 '{login_url}','{renew_url}','{referral_link}','{support_number}','{site_name}','{days}','{orders}','{date}'];
 
 $apiUrl = BASE_URL . '/api/whatsapp.php';
 
@@ -138,6 +148,28 @@ require __DIR__ . '/_header.php';
                 <input type="number" min="0" name="daily_limit" class="form-control" value="<?= e($wa('daily_limit','500')) ?>">
               </div>
             </div>
+
+            <hr class="my-4">
+            <?php $fd = waFooterDefaults(); $fv = fn($k) => ($x = trim((string)$wa($k, ''))) !== '' ? $x : str_replace('\n', "\n", $fd[$k]); ?>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-semibold mb-0"><i class="bi bi-megaphone"></i> Message footer (branding + referral)</h6>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="footerOn" name="footer_enabled" value="1" <?= $wa('footer_enabled','1')==='1'?'checked':'' ?>>
+                <label class="form-check-label" for="footerOn">On</label>
+              </div>
+            </div>
+            <p class="text-muted small">Added at the end of messages. <b>Customer footer</b> goes on bills, order-ready, reservations and menu links sent to a restaurant's customers. <code>{referral_link}</code> becomes the sign-up link with <b>that restaurant's referral code</b>, so you see in Refer &amp; Earn which restaurant brought each new sign-up. Skipped for plans with "Remove branding". <b>Owner footer</b> goes on welcome, plan, payment and support messages. Empty box = default text.</p>
+            <div class="row g-3">
+              <div class="col-md-6"><label class="form-label small">Customer footer — English</label>
+                <textarea name="footer_customer_en" class="form-control form-control-sm" rows="4"><?= e($fv('footer_customer_en')) ?></textarea></div>
+              <div class="col-md-6"><label class="form-label small">Customer footer — ગુજરાતી</label>
+                <textarea name="footer_customer_gu" class="form-control form-control-sm" rows="4"><?= e($fv('footer_customer_gu')) ?></textarea></div>
+              <div class="col-md-6"><label class="form-label small">Owner footer — English</label>
+                <textarea name="footer_owner_en" class="form-control form-control-sm" rows="3"><?= e($fv('footer_owner_en')) ?></textarea></div>
+              <div class="col-md-6"><label class="form-label small">Owner footer — ગુજરાતી</label>
+                <textarea name="footer_owner_gu" class="form-control form-control-sm" rows="3"><?= e($fv('footer_owner_gu')) ?></textarea></div>
+            </div>
+            <div class="form-text">Placeholders: <code>{site_name}</code> <code>{referral_link}</code> <code>{support_number}</code> <code>{restaurant_name}</code> <code>{menu_url}</code></div>
           </div>
           <div class="card-footer bg-white text-end">
             <button class="btn btn-primary"><i class="bi bi-save"></i> Save Settings</button>
