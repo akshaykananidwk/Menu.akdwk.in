@@ -38,6 +38,10 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
 <link href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="<?= e(assetUrl('assets/css/app.css')) ?>" rel="stylesheet">
+<link rel="manifest" href="<?= e(BASE_URL) ?>/client/manifest.php">
+<meta name="theme-color" content="<?= e($primary) ?>">
+<link rel="icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
+<link rel="apple-touch-icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
 <style>:root{--primary:<?= e($primary) ?>;--secondary:<?= e($secondary) ?>;--sidebar-bg:<?= e($secondary) ?>;}</style>
 </head>
 <body>
@@ -91,6 +95,7 @@ $canOrder = $tenant['ordering_mode'] !== 'view_only';
       <button class="sidebar-toggle d-lg-none"><i class="bi bi-list"></i></button>
       <h6 class="mb-0 fw-semibold"><?= e($pageTitle) ?></h6>
       <div class="d-flex align-items-center gap-3">
+        <button type="button" class="btn btn-sm btn-primary js-install-app d-none" onclick="akInstallApp()" title="Install this panel as an app on this computer"><i class="bi bi-download"></i> <span class="d-none d-md-inline">Install App</span></button>
         <a href="<?= e(publicMenuUrl($tenant['slug'])) ?>" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right"></i> View Menu</a>
         <a href="<?= e(BASE_URL) ?>/client/plans.php" class="badge bg-secondary text-decoration-none" title="View plans & upgrade"><i class="bi bi-gem"></i> <?= e($plan['name'] ?? 'No plan') ?></a>
         <div class="dropdown">

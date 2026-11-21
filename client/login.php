@@ -56,6 +56,10 @@ $siteName = getSetting('site_name', 'AK Menu System');
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="csrf-token" content="<?= e(csrfToken()) ?>"><meta name="base-url" content="<?= e(BASE_URL) ?>">
 <title>Restaurant Login · <?= e($siteName) ?></title>
+<link rel="manifest" href="<?= e(BASE_URL) ?>/client/manifest.php">
+<link rel="icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
+<link rel="apple-touch-icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('<?= e(BASE_URL) ?>/client/sw.js',{scope:'<?= e(BASE_URL) ?>/client/'}).catch(function(){});}</script>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <style>body{background:linear-gradient(135deg,#e63946,#f1a208);min-height:100vh;display:flex;align-items:center;font-family:system-ui}
