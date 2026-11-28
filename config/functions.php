@@ -217,7 +217,7 @@ function currentTenantId(): ?int {
 
 /** Require super admin, else redirect to admin login. */
 function requireAdmin(): void {
-    if (!isSuperAdmin()) { redirect(BASE_URL . '/admin/login.php'); }
+    if (!isSuperAdmin()) { redirect(BASE_URL . '/client/login.php'); }
 }
 
 /** Require a logged-in restaurant owner. */

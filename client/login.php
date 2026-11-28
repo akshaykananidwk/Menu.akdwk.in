@@ -1,6 +1,12 @@
 <?php
-/** Restaurant owner login (password or WhatsApp OTP). */
+/**
+ * ONE login page for everybody (also reachable as /login and /admin/login.php):
+ *   - Super Admin e-mail + password → Admin panel
+ *   - Restaurant mobile / e-mail + password, or OTP → Restaurant panel
+ * The account type is decided only by which credentials match.
+ */
 require_once dirname(__DIR__) . '/config/config.php';
+if (isSuperAdmin() && empty($_SESSION['impersonated_by'])) { redirect(BASE_URL . '/admin/index.php'); }
 if (isClient()) { redirect(BASE_URL . '/client/index.php'); }
 
 $error = '';
@@ -26,6 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($tenant && verifyOtp($login, $otp, 'login')) {
             doClientLogin($tenant, $ident);
         } else { recordFailedLogin($ident); $error = 'Invalid or expired OTP.'; }
+    } elseif (strpos($login, '@') !== false && !isLoginLocked('admin:' . strtolower($login))
+              && ($admin = db_one('SELECT * FROM ' . tbl('super_admins') . ' WHERE email = :e AND status = 1', [':e' => strtolower($login)]))
+              && password_verify($_POST['password'] ?? '', $admin['password'])) {
+        // Super Admin credentials → Admin panel (same checks as the old admin login).
+        clearLoginAttempts($ident);
+        clearLoginAttempts('admin:' . strtolower($login));
+        regenerateSession();
+        $_SESSION['admin_id']   = (int)$admin['id'];
+        $_SESSION['admin_name'] = $admin['name'];
+        logActivity('super_admin', (int)$admin['id'], 'Logged in');
+        redirect(BASE_URL . '/admin/index.php');
     } else {
         // Password mode: match by mobile OR email. Mobile is normalised so
         // "+91 99781 23146", "099781..." and "9978123146" all resolve.
@@ -36,7 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         if ($tenant && password_verify($_POST['password'] ?? '', $tenant['password'])) {
             doClientLogin($tenant, $ident);
-        } else { recordFailedLogin($ident); $error = __('invalid_login'); }
+        } else {
+            recordFailedLogin($ident);
+            if (strpos($login, '@') !== false) { recordFailedLogin('admin:' . strtolower($login)); } // admin lock-out stays effective
+            $error = __('invalid_login');
+        }
     }
 }
 
@@ -55,7 +76,7 @@ $siteName = getSetting('site_name', 'AK Menu System');
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <meta name="csrf-token" content="<?= e(csrfToken()) ?>"><meta name="base-url" content="<?= e(BASE_URL) ?>">
-<title>Restaurant Login · <?= e($siteName) ?></title>
+<title>Login · <?= e($siteName) ?></title>
 <link rel="manifest" href="<?= e(BASE_URL) ?>/client/manifest.php">
 <link rel="icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
 <link rel="apple-touch-icon" href="<?= e(BASE_URL) ?>/assets/img/icon-192.png">
@@ -67,7 +88,7 @@ $siteName = getSetting('site_name', 'AK Menu System');
 </head><body>
 <div class="container"><div class="card login-card p-4">
   <div class="text-center mb-3"><i class="bi bi-shop text-danger" style="font-size:2.5rem"></i>
-    <h5 class="mt-2 mb-0">Restaurant Panel</h5><small class="text-muted">Manage your digital menu</small></div>
+    <h5 class="mt-2 mb-0"><?= e($siteName) ?> Login</h5><small class="text-muted">Restaurant owners &amp; admin — one login</small></div>
   <?php if ($error): ?><div class="alert alert-danger py-2 small"><?= e($error) ?></div><?php endif; ?>
   <ul class="nav nav-pills nav-justified mb-3" role="tablist">
     <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pw">Password</button></li>
@@ -76,7 +97,7 @@ $siteName = getSetting('site_name', 'AK Menu System');
   <div class="tab-content">
     <div class="tab-pane fade show active" id="pw">
       <form method="post"><?= csrfField() ?><input type="hidden" name="mode" value="password">
-        <div class="mb-3"><label class="form-label">Mobile / Email</label><input name="login" class="form-control" required></div>
+        <div class="mb-3"><label class="form-label">Mobile / Email</label><input name="login" class="form-control" required autocomplete="username"></div>
         <div class="mb-1"><label class="form-label">Password</label><input name="password" type="password" class="form-control" required></div>
         <div class="mb-3 text-end">
           <a href="<?= e(BASE_URL) ?>/client/forgot_password.php" class="small text-decoration-none">Forgot password?</a>

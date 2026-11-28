@@ -39,8 +39,8 @@ That's it — no manual SQL import, no config editing.
 
 | Panel | URL | Login |
 |---|---|---|
-| Super Admin | `/admin/` | the email + password you set in the installer |
-| Restaurant Owner | `/client/` | mobile/email + password (created per client) |
+| Super Admin | `/login` (same page as restaurants) | the email + password you set in the installer → opens the Admin panel |
+| Restaurant Owner | `/login` | mobile/email + password (created per client), or WhatsApp/e-mail OTP → opens the Restaurant panel |
 | Waiter | `/waiter/` | restaurant code (slug) + 4-digit PIN |
 | Kitchen (KOT) | `/kitchen/` | restaurant code (slug) + 4-digit PIN |
 | Public menu | `/r/{slug}` | no login |
